@@ -1,5 +1,24 @@
 <?php
 
+use App\Http\Controllers\Academia\DashboardController as AcademiaDashboardController;
+use App\Http\Controllers\Academia\GrupoController;
+use App\Http\Controllers\Academia\AlumnoController;
+use App\Http\Controllers\Academia\ProfesorController;
+use App\Http\Controllers\Academia\HorarioController;
+use App\Http\Controllers\Academia\KardexController;
+use App\Http\Controllers\Academia\CicloController;
+use App\Http\Controllers\Academia\CursoController;
+use App\Http\Controllers\Academia\PlanController;
+use App\Http\Controllers\Academia\ApiController;
+use App\Http\Controllers\Academia\CicloController as AcademiaCicloController;
+use App\Http\Controllers\Academia\CursoController as AcademiaCursoController;
+use App\Http\Controllers\Academia\PlanController as AcademiaPlanController;
+use App\Http\Controllers\Academia\GrupoController as AcademiaGrupoController;
+use App\Http\Controllers\Academia\AlumnoController as AcademiaAlumnoController;
+use App\Http\Controllers\Academia\ProfesorController as AcademiaProfesorController;
+use App\Http\Controllers\Academia\HorarioController as AcademiaHorarioController;
+use App\Http\Controllers\Academia\KardexController as AcademiaKardexController;
+use App\Http\Controllers\Academia\ApiController as AcademiaApiController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -15,6 +34,75 @@ Route::post('/logout', [AuthController::class, 'destroy'])->middleware('auth')->
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('kpis/json', [DashboardController::class, 'kpisJson'])->name('dashboard.kpisJson');
+
+    // Academia routes
+    Route::prefix('academia')->name('academia.')->group(function () {
+        Route::get('/', [AcademiaDashboardController::class, 'index'])->name('dashboard');
+
+        // Ciclos
+        Route::resource('ciclos', AcademiaCicloController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update', 'destroy']);
+        Route::post('ciclos/{ciclo}/activo', [AcademiaCicloController::class, 'setActivo'])->name('ciclos.activo');
+
+        // Grupos
+        Route::resource('grupos', AcademiaGrupoController::class)->only(['index', 'show']);
+        Route::get('grupos/{grupo}/asistencia', [AcademiaGrupoController::class, 'asistencia'])->name('grupos.asistencia');
+        Route::post('grupos/{grupo}/asistencia', [AcademiaGrupoController::class, 'guardarAsistencia'])->name('grupos.asistencia.guardar');
+
+        // Alumnos
+        Route::resource('alumnos', AcademiaAlumnoController::class)->only(['index', 'show']);
+        Route::get('alumnos/{alumno}/kardex', [AcademiaAlumnoController::class, 'kardex'])->name('alumnos.kardex');
+        Route::get('alumnos/{alumno}/historial', [AcademiaAlumnoController::class, 'historial'])->name('alumnos.historial');
+
+        // Profesores
+        Route::resource('profesores', AcademiaProfesorController::class)->only(['index', 'show']);
+        Route::get('profesores/{profesor}/horario', [AcademiaProfesorController::class, 'horario'])->name('profesores.horario');
+
+        // Horarios
+        Route::prefix('horarios')->name('horarios.')->group(function () {
+            Route::get('clase', [AcademiaHorarioController::class, 'clase'])->name('clase');
+            Route::get('profesor', [AcademiaHorarioController::class, 'profesor'])->name('profesor');
+            Route::get('aula', [AcademiaHorarioController::class, 'aula'])->name('aula');
+            Route::get('base', [AcademiaHorarioController::class, 'base'])->name('base');
+            Route::get('persona', [AcademiaHorarioController::class, 'persona'])->name('persona');
+        });
+
+        // Kardex
+        Route::prefix('kardex')->name('kardex.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Academia\KardexController::class, 'index'])->name('index');
+            Route::get('show', [App\Http\Controllers\Academia\KardexController::class, 'show'])->name('show');
+            Route::get('historial', [App\Http\Controllers\Academia\KardexController::class, 'historial'])->name('historial');
+            Route::get('print', [App\Http\Controllers\Academia\KardexController::class, 'print'])->name('print');
+        });
+
+        // Cursos
+        Route::resource('cursos', AcademiaCursoController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update', 'destroy']);
+        Route::post('cursos/{curso}/materia', [AcademiaCursoController::class, 'addMateria'])->name('cursos.materia.add');
+        Route::delete('cursos/{curso}/materia/{materia}', [AcademiaCursoController::class, 'removeMateria'])->name('cursos.materia.remove');
+
+        // Planes
+        Route::resource('planes', AcademiaPlanController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update', 'destroy']);
+    });
+
+    // API Routes for AJAX
+    Route::prefix('api/academia')->name('api.academia.')->group(function () {
+        Route::get('grupos-por-ciclo', [AcademiaApiController::class, 'gruposPorCiclo'])->name('grupos-por-ciclo');
+        Route::get('alumnos-por-grupo', [AcademiaApiController::class, 'alumnosPorGrupo'])->name('alumnos-por-grupo');
+        Route::get('ciclos-disponibles', [AcademiaApiController::class, 'ciclosDisponibles'])->name('ciclos-disponibles');
+        Route::get('planes-por-nivel', [AcademiaApiController::class, 'planesPorNivel'])->name('planes-por-nivel');
+        Route::get('materias-por-plan', [AcademiaApiController::class, 'materiasPorPlan'])->name('materias-por-plan');
+        Route::get('metodos-eval', [AcademiaApiController::class, 'metodosEval'])->name('metodos-eval');
+        Route::get('niveles', [AcademiaApiController::class, 'niveles'])->name('niveles');
+        Route::get('turnos', [AcademiaApiController::class, 'turnos'])->name('turnos');
+        Route::get('sedes', [AcademiaApiController::class, 'sedes'])->name('sedes');
+        Route::get('horario-base', [AcademiaApiController::class, 'horarioBase'])->name('horario-base');
+        Route::get('grupo-detalle', [AcademiaApiController::class, 'grupoDetalle'])->name('grupo-detalle');
+    });
+
+    // Firebird Sync
+    Route::prefix('firebird')->name('firebird.')->group(function () {
+        Route::get('/', fn () => view('firebird.index'))->name('index');
+        Route::get('sync/{sync}', fn ($sync) => view('firebird.sync', ['sync' => \App\Models\FirebirdSync::findOrFail($sync)]))->name('sync');
+    });
 
     Route::prefix('devices')->name('devices.')->group(function () {
         Route::get('/', [DeviceController::class, 'index'])->name('index');

@@ -92,6 +92,16 @@ return [
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
+        'firebird' => [
+            'driver' => 'firebird',
+            'dsn' => env('FIREBIRD_DSN'),
+            'username' => env('FIREBIRD_USER'),
+            'password' => env('FIREBIRD_PASS'),
+            'options' => [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ],
+        ],
 
     ],
 

@@ -40,7 +40,7 @@
             <span class="brand-label">{{ config('app.name') }}</span>
         </a>
         <div class="nav-group-title">Módulos</div>
-        <ul class="app-nav">
+<ul class="app-nav">
             <li class="nav-item">
                 <a href="{{ route('dashboard') }}" data-tooltip="Panel de control" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" title="Panel de control">
                     <i class="bi bi-speedometer2"></i><span class="nav-label">Panel de control</span>
@@ -71,15 +71,65 @@
                 </a>
             </li>
             @if (auth()->user()->isAdmin())
-                <li class="nav-item">
-                    <a href="{{ route('operations.queue') }}" data-tooltip="Cola de sincronización" class="nav-link {{ request()->routeIs('operations.queue') ? 'active' : '' }}" title="Cola de sincronización">
-                        <i class="bi bi-list-task"></i><span class="nav-label">Cola de sincronización</span>
-                    </a>
-                </li>
+            <li class="nav-item">
+                <a href="{{ route('operations.queue') }}" data-tooltip="Cola de sincronización" class="nav-link {{ request()->routeIs('operations.queue') ? 'active' : '' }}" title="Cola de sincronización">
+                    <i class="bi bi-list-task"></i><span class="nav-label">Cola de sincronización</span>
+                </a>
+            </li>
             @endif
             <li class="nav-item">
                 <a href="{{ route('operations.notifications') }}" data-tooltip="Notificaciones" class="nav-link {{ request()->routeIs('operations.notifications') ? 'active' : '' }}" title="Notificaciones">
                     <i class="bi bi-bell"></i><span class="nav-label">Notificaciones</span>
+                </a>
+            </li>
+        </ul>
+
+        {{-- Academia --}}
+        <div class="nav-group-title">Academia</div>
+        <ul class="app-nav">
+            <li class="nav-item">
+                <a href="{{ route('academia.dashboard') }}" data-tooltip="Dashboard Académico" class="nav-link {{ request()->routeIs('academia.dashboard') ? 'active' : '' }}" title="Dashboard Académico">
+                    <i class="bi bi-mortarboard"></i><span class="nav-label">Dashboard Académico</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('academia.ciclos.index') }}" data-tooltip="Ciclos Escolares" class="nav-link {{ request()->routeIs('academia.ciclos*') ? 'active' : '' }}" title="Ciclos Escolares">
+                    <i class="bi bi-calendar-event"></i><span class="nav-label">Ciclos Escolares</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('academia.grupos.index') }}" data-tooltip="Grupos" class="nav-link {{ request()->routeIs('academia.grupos*') ? 'active' : '' }}" title="Grupos">
+                    <i class="bi bi-people"></i><span class="nav-label">Grupos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('academia.alumnos.index') }}" data-tooltip="Alumnos" class="nav-link {{ request()->routeIs('academia.alumnos*') ? 'active' : '' }}" title="Alumnos">
+                    <i class="bi bi-mortarboard"></i><span class="nav-label">Alumnos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('academia.profesores.index') }}" data-tooltip="Profesores" class="nav-link {{ request()->routeIs('academia.profesores*') ? 'active' : '' }}" title="Profesores">
+                    <i class="bi bi-person-badge"></i><span class="nav-label">Profesores</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('academia.horarios.clase') }}" data-tooltip="Horarios y Asistencia" class="nav-link {{ request()->routeIs('academia.horarios*') ? 'active' : '' }}" title="Horarios y Asistencia">
+                    <i class="bi bi-calendar-week"></i><span class="nav-label">Horarios</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('academia.kardex.index') }}" data-tooltip="Kardex" class="nav-link {{ request()->routeIs('academia.kardex*') ? 'active' : '' }}" title="Kardex">
+                    <i class="bi bi-file-earmark-text"></i><span class="nav-label">Kardex</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('academia.cursos.index') }}" data-tooltip="Cursos" class="nav-link {{ request()->routeIs('academia.cursos*') ? 'active' : '' }}" title="Cursos">
+                    <i class="bi bi-book"></i><span class="nav-label">Cursos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('academia.planes.index') }}" data-tooltip="Planes de Estudio" class="nav-link {{ request()->routeIs('academia.planes*') ? 'active' : '' }}" title="Planes de Estudio">
+                    <i class="bi bi-journal-bookmark"></i><span class="nav-label">Planes</span>
                 </a>
             </li>
         </ul>

@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Catálogo central de empleados. Solo información global de la persona
  * (user_id = PIN/badge único global, name). Todo atributo de hardware vive en
  * la tabla pivote device_employee vía la relación devices().
+ *
+ * ADR-001: type enum (biometric, admin, teacher) - campos academia/RRHH solo usados según type
  */
 class Employee extends Model
 {
@@ -23,6 +25,21 @@ class Employee extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'type',              // biometric | admin | teacher
+        'numero_empleado',   // EMPLEADOS.NUMEMPLEADO
+        'clave_profesor',    // PROFESORES.CLAVEPROFESOR
+        'departamento',
+        'cargo',
+        'contrato',
+        'status_actual',     // A=Activo, B=Baja
+        'fecha_ingreso',
+        'id_campus',
+        'nivel',
+        'tarjeta_id',
+    ];
+
+    protected $casts = [
+        'fecha_ingreso' => 'date',
     ];
 
     /**
@@ -58,5 +75,41 @@ class Employee extends Model
     public static function roles(): array
     {
         return DeviceEmployee::roles();
+    }
+
+    // Scopes por tipo (ADR-001)
+    public function scopeBiometric($query)
+    {
+        return $query->where('type', 'biometric');
+    }
+
+    public function scopeAdmin($query)
+    {
+        return $query->where('type', 'admin');
+    }
+
+    public function scopeTeacher($query)
+    {
+        return $query->where('type', 'teacher');
+    }
+
+    // Accessor para etiqueta de tipo
+    public function getTypeLabelAttribute(): string
+    {
+        return match ($this->type) {
+            'biometric' => 'Biométrico (ZKTeco)',
+            'admin' => 'Administrativo',
+            'teacher' => 'Docente',
+            default => $this->type,
+        };
+    }
+
+    public function getStatusActualLabelAttribute(): string
+    {
+        return match ($this->status_actual) {
+            'A' => 'Activo',
+            'B' => 'Baja',
+            default => $this->status_actual ?? '—',
+        };
     }
 }

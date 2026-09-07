@@ -32,7 +32,6 @@ class GrupoController extends Controller
         $grupos = Grupo::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)
             ->activo()
             ->with(['nivelRel', 'turnoRel', 'sede'])
-            ->withCount('alumnos')
             ->orderBy('grado')
             ->orderBy('turno')
             ->orderBy('codigo_grupo')
@@ -53,7 +52,6 @@ class GrupoController extends Controller
         
         // Alumnos inscritos
         $alumnos = $grupo->alumnos()
-            ->withPivot('fecha_inscripcion', 'estatus')
             ->orderBy('paterno')
             ->orderBy('materno')
             ->orderBy('nombre')

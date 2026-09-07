@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Editar Plan: {{ $plan->nombre_plan }}')
+@section('title', 'Editar Plan: ' . $plan->nombre_plan)
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">

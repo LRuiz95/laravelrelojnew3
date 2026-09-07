@@ -24,11 +24,11 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label for="state" class="form-label small mb-1">Tipo de marcado</label>
-                <select name="state" id="state" class="form-select">
+                <label for="type" class="form-label small mb-1">Tipo de marcado</label>
+                <select name="type" id="type" class="form-select">
                     <option value="">Todos</option>
                     @foreach ($states as $value => $label)
-                        <option value="{{ $value }}" @selected(request('state') !== null && request('state') == $value)>{{ $label }}</option>
+                        <option value="{{ $value }}" @selected(request('type') !== null && request('type') == $value)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
@@ -101,13 +101,13 @@
                         <tr>
                             <td colspan="5">
                                 @include('partials.empty-state', [
-                                    'icon'     => request('state') || request('from') || request('to') || request('device_id')
+                                    'icon'     => request('type') || request('from') || request('to') || request('device_id')
                                         ? 'bi-search'
                                         : 'bi-calendar-x',
-                                    'title'    => request('state') || request('from') || request('to') || request('device_id')
+                                    'title'    => request('type') || request('from') || request('to') || request('device_id')
                                         ? 'Sin resultados para los filtros'
                                         : 'Aún no hay registros',
-                                    'desc'     => request('state') || request('from') || request('to') || request('device_id')
+                                    'desc'     => request('type') || request('from') || request('to') || request('device_id')
                                         ? 'Prueba con otros criterios o limpia los filtros aplicados.'
                                         : 'Los registros aparecerán aquí cuando se sincronicen desde los checadores.',
                                 ])

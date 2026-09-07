@@ -81,10 +81,10 @@ class AttendanceFilterTest extends TestCase
     public function test_state_filter_matches_punch_type(): void
     {
         // type=0 → Entrada: solo Ana; el filtro NO debe usar la columna state (siempre 1).
-        $this->assertSame(['Ana Entrada'], $this->filteredNames('/attendances?state=0'));
+        $this->assertSame(['Ana Entrada'], $this->filteredNames('/attendances?type=0'));
 
         // type=5 → Salida T.E.: solo Beto (de ayer).
-        $this->assertSame(['Beto Salida'], $this->filteredNames('/attendances?state=5'));
+        $this->assertSame(['Beto Salida'], $this->filteredNames('/attendances?type=5'));
     }
 
     public function test_device_filter(): void
@@ -110,7 +110,7 @@ class AttendanceFilterTest extends TestCase
     {
         $hoy = today()->toDateString();
 
-        $this->assertSame(['Ana Entrada'], $this->filteredNames("/attendances?state=1&from={$hoy}&to={$hoy}"));
+        $this->assertSame(['Ana Entrada'], $this->filteredNames("/attendances?type=1&from={$hoy}&to={$hoy}"));
     }
 
     /** Sin filtros se usa la vista única por empleado+fecha: ambos aparecen */

@@ -11,9 +11,11 @@ use App\Models\Academia\HorarioDet;
 use App\Models\Academia\Alumno;
 use App\Models\Academia\Curso;
 use App\Services\CicloActualService;
+use App\Http\Requests\CicloFormRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 
 class CicloController extends Controller
 {
@@ -74,14 +76,7 @@ class CicloController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
-            'inicial' => 'required|integer|min:2000|max:2100',
-            'final' => 'required|integer|min:2000|max:2100',
-            'periodo' => 'required|integer|min:1|max:4',
-            'descripcion' => 'nullable|string|max:100',
-            'fecha_inicial' => 'nullable|date',
-            'fecha_final' => 'nullable|date|after:fecha_inicial',
-        ]);
+        $request->validate((new CicloFormRequest)->rules(), (new CicloFormRequest)->messages());
 
         Ciclo::create($request->only([
             'inicial', 'final', 'periodo', 'descripcion', 'fecha_inicial', 'fecha_final', 'activo'
@@ -98,12 +93,7 @@ class CicloController extends Controller
 
     public function update(Request $request, Ciclo $ciclo): RedirectResponse
     {
-        $request->validate([
-            'descripcion' => 'nullable|string|max:100',
-            'fecha_inicial' => 'nullable|date',
-            'fecha_final' => 'nullable|date|after:fecha_inicial',
-            'activo' => 'boolean',
-        ]);
+        $request->validate((new CicloFormRequest)->rules(), (new CicloFormRequest)->messages());
 
         $ciclo->update($request->only(['descripcion', 'fecha_inicial', 'fecha_final', 'activo']));
 

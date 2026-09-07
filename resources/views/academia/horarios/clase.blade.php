@@ -56,23 +56,23 @@
 @if ($filtros['nivel'] && $filtros['turno'])
     {{-- KPIs --}}
     <div class="kpi-grid mb-4">
-        <x-stat-card :icon="'bi-calendar-week'" :label="'Total clases'" :value="{{ $stats['total_clases'] }}" :color="'purple'">
+        <x-stat-card :icon="'bi-calendar-week'" :label="'Total clases'" :value="$stats['total_clases']" :color="'purple'">
             <div class="kpi-trend flat">–</div>
         </x-stat-card>
-        <x-stat-card :icon="'bi-check-circle'" :label="'Capturadas'" :value="{{ $stats['capturadas'] }}/{{ $stats['total_clases'] }}" :color="'green'">
+        <x-stat-card :icon="'bi-check-circle'" :label="'Capturadas'" :value="$stats['capturadas'] . '/' . $stats['total_clases']" :color="'green'">
             <div class="kpi-trend flat">–</div>
         </x-stat-card>
-        <x-stat-card :icon="'bi-check'" :label="'Presentes'" :value="{{ $stats['presentes'] }}" :color="'success'">
+        <x-stat-card :icon="'bi-check'" :label="'Presentes'" :value="$stats['presentes']" :color="'success'">
             <div class="kpi-trend flat">–</div>
         </x-stat-card>
-        <x-stat-card :icon="'bi-x-circle'" :label="'Ausentes'" :value="{{ $stats['ausentes'] }}" :color="'danger'">
+        <x-stat-card :icon="'bi-x-circle'" :label="'Ausentes'" :value="$stats['ausentes']" :color="'danger'">
             <div class="kpi-trend flat">–</div>
         </x-stat-card>
-        <x-stat-card :icon="'bi-clock'" :label="'Retardos'" :value="{{ $stats['retardos'] }}" :color="'warning'">
+        <x-stat-card :icon="'bi-clock'" :label="'Retardos'" :value="$stats['retardos']" :color="'warning'">
             <div class="kpi-trend flat">–</div>
         </x-stat-card>
         @if ($stats['total_clases'] > 0)
-            <x-stat-card :icon="'bi-graph-up'" :label="'Avance'" :value="{{ round(($stats['capturadas'] / max($stats['total_clases'], 1)) * 100) }}%" :color="'info'">
+            <x-stat-card :icon="'bi-graph-up'" :label="'Avance'" :value="round(($stats['capturadas'] / max($stats['total_clases'], 1)) * 100) . '%'" :color="'info'">
                 <div class="kpi-trend flat">–</div>
             </x-stat-card>
         @endif
@@ -213,4 +213,14 @@
     }
     function closeAsistDrawer() { bootstrap.Offcanvas.getInstance(document.getElementById('asistDrawer'))?.hide(); }
     </script>
+
+@else
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-funnel display-4 text-muted"></i>
+            <h5 class="mt-3 text-muted">Selecciona nivel y turno</h5>
+            <p class="text-muted">Usa los filtros superiores para ver la asistencia de clases.</p>
+        </div>
+    </div>
+@endif
 @endsection

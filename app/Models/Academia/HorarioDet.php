@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\DB;
 
 class HorarioDet extends Model
 {
@@ -47,13 +48,17 @@ class HorarioDet extends Model
 
     public function ciclo(): BelongsTo
     {
-        return $this->belongsTo(Ciclo::class, ['inicial', 'final', 'periodo'], ['inicial', 'final', 'periodo']);
+        return $this->belongsTo(Ciclo::class, 'inicial')
+            ->whereColumn('ciclos.final', 'horarios_det.final')
+            ->whereColumn('ciclos.periodo', 'horarios_det.periodo');
     }
 
     public function grupo(): BelongsTo
     {
-        return $this->belongsTo(Grupo::class, ['codigo_grupo', 'inicial', 'final', 'periodo'], 
-            ['codigo_grupo', 'inicial', 'final', 'periodo']);
+        return $this->belongsTo(Grupo::class, 'codigo_grupo')
+            ->whereColumn('grupos.inicial', 'horarios_det.inicial')
+            ->whereColumn('grupos.final', 'horarios_det.final')
+            ->whereColumn('grupos.periodo', 'horarios_det.periodo');
     }
 
     public function profesor(): BelongsTo
@@ -71,9 +76,13 @@ class HorarioDet extends Model
         return $this->belongsTo(Sede::class, 'id_campus', 'id_campus');
     }
 
-    public function sesionBase(): BelongsTo
+    public function sesionBase()
     {
-        return $this->belongsTo(SesionBase::class, ['nivel', 'turno', 'sesion'], ['nivel', 'turno', 'sesion']);
+        // horarios_det no tiene nivel/turno — se resuelve a través de Grupo
+        // Usa subqueries para obtener nivel/turno del grupo asociado
+        return $this->belongsTo(SesionBase::class, 'sesion', 'sesion')
+            ->whereRaw('sesiones_base.nivel = (SELECT g.nivel FROM grupos g WHERE g.codigo_grupo = horarios_det.codigo_grupo AND g.inicial = horarios_det.inicial AND g.final = horarios_det.final AND g.periodo = horarios_det.periodo LIMIT 1)')
+            ->whereRaw('sesiones_base.turno = (SELECT g.turno FROM grupos g WHERE g.codigo_grupo = horarios_det.codigo_grupo AND g.inicial = horarios_det.inicial AND g.final = horarios_det.final AND g.periodo = horarios_det.periodo LIMIT 1)');
     }
 
     public function scopeActivo($query)

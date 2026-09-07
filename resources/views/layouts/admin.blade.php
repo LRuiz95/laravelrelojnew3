@@ -39,7 +39,8 @@
             <span class="brand-mark"><i class="bi bi-fingerprint"></i></span>
             <span class="brand-label">{{ config('app.name') }}</span>
         </a>
-        <div class="nav-group-title">Módulos</div>
+        <div class="app-sidebar-inner">
+            <div class="nav-group-title">Módulos</div>
 <ul class="app-nav">
             <li class="nav-item">
                 <a href="{{ route('dashboard') }}" data-tooltip="Panel de control" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" title="Panel de control">
@@ -132,6 +133,13 @@
                     <i class="bi bi-journal-bookmark"></i><span class="nav-label">Planes</span>
                 </a>
             </li>
+            @if (auth()->check() && auth()->user()->isAdmin())
+            <li class="nav-item">
+                <a href="{{ route('firebird.index') }}" data-tooltip="Sincronizar Firebird" class="nav-link {{ request()->routeIs('firebird.*') ? 'active' : '' }}" title="Sincronizar datos desde Firebird">
+                    <i class="bi bi-cloud-download"></i><span class="nav-label">Sincronizar Firebird</span>
+                </a>
+            </li>
+            @endif
         </ul>
 
         @if (auth()->check() && auth()->user()->isAdmin())
@@ -151,13 +159,14 @@
         @endif
 
         <div class="nav-group-title">Herramientas</div>
-        <ul class="app-nav mb-auto">
+        <ul class="app-nav">
             <li class="nav-item">
                 <a href="{{ route('attendances.export', request()->query()) }}" data-tooltip="Exportar CSV" class="nav-link" title="Exportar asistencias a CSV">
                     <i class="bi bi-file-earmark-spreadsheet"></i><span class="nav-label">Exportar asistencias</span>
                 </a>
             </li>
         </ul>
+        </div>
 
         @auth
             <div class="app-profile">
@@ -213,7 +222,53 @@
                         <i class="bi bi-moon-stars icon-moon"></i>
                     </span>
                 </button>
-                <span class="date-chip"><i class="bi bi-calendar3 me-1"></i>{{ now()->locale('es')->isoFormat('D MMM YYYY') }}</span>
+                @php
+    $cicloActual = app(\App\Services\CicloActualService::class)->current();
+    $ciclosDisponibles = \App\Models\Academia\Ciclo::activo()
+        ->orderByDesc('inicial')
+        ->orderByDesc('final')
+        ->orderByDesc('periodo')
+        ->get();
+@endphp
+
+<span class="date-chip me-2"><i class="bi bi-calendar3 me-1"></i>{{ now()->locale('es')->isoFormat('D MMM YYYY') }}</span>
+
+@if($ciclosDisponibles->isNotEmpty())
+    <div class="dropdown ciclo-selector">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1" type="button" id="cicloDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="max-width: 220px;">
+            <i class="bi bi-calendar-event"></i>
+            @if($cicloActual)
+                <span class="text-truncate">{{ $cicloActual->label }}</span>
+            @else
+                <span class="text-muted">Sin ciclo</span>
+            @endif
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="cicloDropdown" style="min-width: 240px;">
+            <li class="dropdown-header text-muted small">Seleccionar ciclo escolar</li>
+            @forelse($ciclosDisponibles as $ciclo)
+                <li>
+                    <a class="dropdown-item {{ $cicloActual && $cicloActual->label === $ciclo->label ? 'active' : '' }}" href="#"
+                       onclick="setCiclo('{{ $ciclo->label }}'); return false;">
+                        <i class="bi bi-calendar3 me-2"></i>{{ $ciclo->label }}
+                        @if($ciclo->descripcion)
+                            <small class="text-muted ms-1">- {{ Str::limit($ciclo->descripcion, 30) }}</small>
+                        @endif
+                    </a>
+                </li>
+            @empty
+                <li><span class="dropdown-item text-muted">No hay ciclos disponibles</span></li>
+            @endforelse
+            @if($cicloActual)
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item text-danger" href="#" onclick="setCiclo(''); return false;">
+                        <i class="bi bi-x-circle me-2"></i>Quitar ciclo
+                    </a>
+                </li>
+            @endif
+        </ul>
+    </div>
+@endif
                 <button class="icon-button mobile-nav-toggle" type="button" data-sidebar-control aria-label="Contraer navegación" title="Contraer navegación">
                     <i class="bi bi-chevron-left"></i>
                 </button>
@@ -287,6 +342,30 @@
 <div data-confirm-root></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Ciclo selector functionality
+    function setCiclo(label) {
+        fetch('{{ route("academia.set-ciclo") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ ciclo_label: label })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error setting ciclo:', error);
+            alert('Error al cambiar el ciclo. Intenta de nuevo.');
+        });
+    }
+</script>
 <script>
     document.querySelectorAll('form[action*="/sync-"]').forEach((form) => {
         form.addEventListener('submit', () => {

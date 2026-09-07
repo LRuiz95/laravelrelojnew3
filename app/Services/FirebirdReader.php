@@ -97,6 +97,39 @@ class FirebirdReader
         return $all;
     }
 
+    /**
+     * Fetch rows in chunks using Firebird FIRST/SKIP syntax.
+     * Yields batches to keep memory bounded.
+     *
+     * @return \Generator<int, array>
+     */
+    public function fetchRowsChunked(string $table, array $fbCols, int $chunkSize = 5000, ?string $where = null, array $params = []): \Generator
+    {
+        $colsSelect = implode(', ', array_map(fn($c) => "\"{$c}\"", $fbCols));
+        $offset = 0;
+
+        while (true) {
+            $sql = "SELECT FIRST {$chunkSize} SKIP {$offset} {$colsSelect} FROM {$table}";
+            if ($where) $sql .= " WHERE {$where}";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($rows)) {
+                break;
+            }
+
+            $this->cleanRows($rows);
+            yield $rows;
+
+            if (count($rows) < $chunkSize) {
+                break;
+            }
+
+            $offset += $chunkSize;
+        }
+    }
+
     public function cleanRows(array &$datos): array
     {
         foreach ($datos as &$row) {

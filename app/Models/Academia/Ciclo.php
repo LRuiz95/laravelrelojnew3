@@ -36,17 +36,30 @@ class Ciclo extends Model
 
     public function periodos(): HasMany
     {
-        return $this->hasMany(Curso::class, ['inicial', 'final', 'periodo'], ['inicial', 'final', 'periodo']);
+        return $this->hasMany(Curso::class, 'inicial')
+            ->whereColumn('cursos.final', 'ciclos.final')
+            ->whereColumn('cursos.periodo', 'ciclos.periodo');
+    }
+
+    public function cursos(): HasMany
+    {
+        return $this->hasMany(Curso::class, 'inicial')
+            ->whereColumn('cursos.final', 'ciclos.final')
+            ->whereColumn('cursos.periodo', 'ciclos.periodo');
     }
 
     public function grupos(): HasMany
     {
-        return $this->hasMany(Grupo::class, ['inicial', 'final', 'periodo'], ['inicial', 'final', 'periodo']);
+        return $this->hasMany(Grupo::class, 'inicial')
+            ->whereColumn('grupos.final', 'ciclos.final')
+            ->whereColumn('grupos.periodo', 'ciclos.periodo');
     }
 
     public function horarios(): HasMany
     {
-        return $this->hasMany(HorarioDet::class, ['inicial', 'final', 'periodo'], ['inicial', 'final', 'periodo']);
+        return $this->hasMany(HorarioDet::class, 'inicial')
+            ->whereColumn('horarios_det.final', 'ciclos.final')
+            ->whereColumn('horarios_det.periodo', 'ciclos.periodo');
     }
 
     public function scopeActivo($query)

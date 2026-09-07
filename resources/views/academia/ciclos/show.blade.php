@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Ciclo: {{ $ciclo->label }}')
+@section('title', 'Ciclo: ' . $ciclo->label)
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -22,19 +22,19 @@
 
 {{-- KPIs --}}
 <div class="kpi-grid mb-4">
-    <x-stat-card :icon="'bi-people'" :label="'Grupos'" :value="{{ $stats['grupos'] }}" :color="'purple'">
+    <x-stat-card :icon="'bi-people'" :label="'Grupos'" :value="$stats['grupos']" :color="'purple'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-people-fill'" :label="'Alumnos'" :value="{{ $stats['alumnos'] }}" :color="'blue'">
+    <x-stat-card :icon="'bi-people-fill'" :label="'Alumnos'" :value="$stats['alumnos']" :color="'blue'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-person-badge'" :label="'Profesores'" :value="{{ $stats['profesores'] }}" :color="'green'">
+    <x-stat-card :icon="'bi-person-badge'" :label="'Profesores'" :value="$stats['profesores']" :color="'green'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-calendar-week'" :label="'Horarios'" :value="{{ $stats['horarios'] }}" :color="'orange'">
+    <x-stat-card :icon="'bi-calendar-week'" :label="'Horarios'" :value="$stats['horarios']" :color="'orange'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-book'" :label="'Cursos'" :value="{{ $stats['cursos'] }}" :color="'teal'">
+    <x-stat-card :icon="'bi-book'" :label="'Cursos'" :value="$stats['cursos']" :color="'teal'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
 </div>

@@ -23,9 +23,11 @@ class FirebirdSyncJob implements ShouldQueue
 
     public function __construct(
         public FirebirdSync $sync,
-        public string $operation = 'sync_all', // sync_ciclo, sync_catalogos, sync_all
+        public string $operation = 'sync_all', // sync_ciclo, sync_catalogos, sync_all, sync_custom
         public ?string $ciclo = null,
         public bool $deleteOrphans = false,
+        public array $tables = [], // lista de tablas FB para sync_custom
+        public bool $skipExisting = true,
     ) {}
 
     public function backoff(): array
@@ -57,6 +59,7 @@ class FirebirdSyncJob implements ShouldQueue
             'sync_id' => $this->sync->id,
             'operation' => $this->operation,
             'ciclo' => $this->ciclo,
+            'tables' => $this->tables,
         ]);
 
         $this->sync->update([
@@ -74,6 +77,8 @@ class FirebirdSyncJob implements ShouldQueue
             $this->sync,
             $this->ciclo,
             $this->deleteOrphans,
+            $this->tables,
+            $this->skipExisting,
             function (int $processed, int $total, string $stage): void {
                 $this->updateProgress($processed, $total, $stage);
             }
@@ -88,6 +93,7 @@ class FirebirdSyncJob implements ShouldQueue
             'sync_ciclo' => app(\App\Services\SyncStrategies\CycleDirectSync::class),
             'sync_catalogos' => app(\App\Services\SyncStrategies\CatalogSmartSync::class),
             'sync_all' => app(\App\Services\SyncStrategies\FullSyncStrategy::class),
+            'sync_custom' => app(\App\Services\SyncStrategies\CustomSyncStrategy::class),
             default => app(\App\Services\SyncStrategies\FullSyncStrategy::class),
         };
     }

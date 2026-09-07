@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\NoCiclosConfiguradosException;
 use App\Models\Academia\Ciclo;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ class CicloActualService
      * Resuelve el ciclo actual siguiendo prioridad:
      * 1. Parámetro URL ?ciclo_principal=
      * 2. Sesión guardada
-     * 3. Último ciclo con datos en horarios_det
+     * 3. Último ciclo activo
      */
     public function resolve(Request $request): Ciclo
     {
@@ -56,12 +57,39 @@ class CicloActualService
 
     public function getDefaultCiclo(): Ciclo
     {
-        return Ciclo::query()
-            ->whereHas('horarios')
+        $ciclo = Ciclo::query()
+            ->activo()
             ->latest('inicial')
             ->latest('final')
             ->latest('periodo')
-            ->firstOrFail();
+            ->first();
+
+        if (! $ciclo) {
+            throw new NoCiclosConfiguradosException();
+        }
+
+        return $ciclo;
+    }
+
+    /**
+     * Obtiene el ciclo actual para el header/global.
+     * Sin Request: sesión → default (sin lanzar excepción si no hay ciclos).
+     */
+    public function current(): ?Ciclo
+    {
+        if (Session::has(self::SESSION_KEY)) {
+            $ciclo = $this->findByLabel(Session::get(self::SESSION_KEY));
+            if ($ciclo) {
+                return $ciclo;
+            }
+        }
+
+        return Ciclo::query()
+            ->activo()
+            ->orderByDesc('inicial')
+            ->orderByDesc('final')
+            ->orderByDesc('periodo')
+            ->first();
     }
 
     public function storeInSession(Ciclo $ciclo): void
@@ -82,12 +110,12 @@ class CicloActualService
         Session::forget(self::SESSION_KEY);
     }
 
-    public function getAllForSelector(): array
+    public function getAllForSelector(): \Illuminate\Support\Collection
     {
-        return Ciclo::activo()->latest()->get()
-            ->map(fn (Ciclo $c) => [
-                'value' => $c->label,
-                'label' => $c->label . ' (' . $c->descripcion . ')',
-            ])->values()->all();
+        return Ciclo::activo()
+            ->orderByDesc('inicial')
+            ->orderByDesc('final')
+            ->orderByDesc('periodo')
+            ->get();
     }
 }

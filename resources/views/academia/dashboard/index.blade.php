@@ -30,23 +30,23 @@
 
 {{-- KPIs --}}
 <div class="kpi-grid" data-kpis-url="{{ route('dashboard.kpisJson') }}">
-    <x-stat-card :icon="'bi-people'" :label="'Grupos'" :value="{{ $kpis['grupos'] }}" :color="'purple'">
+    <x-stat-card :icon="'bi-people'" :label="'Grupos'" :value="$kpis['grupos']" :color="'purple'">
         <div class="kpi-trend flat" data-kpi-trend>–</div>
     </x-stat-card>
 
-    <x-stat-card :icon="'bi-people-fill'" :label="'Alumnos inscritos'" :value="{{ $kpis['alumnos'] }}" :color="'blue'">
+    <x-stat-card :icon="'bi-people-fill'" :label="'Alumnos inscritos'" :value="$kpis['alumnos']" :color="'blue'">
         <div class="kpi-trend flat" data-kpi-trend>–</div>
     </x-stat-card>
 
-    <x-stat-card :icon="'bi-person-badge'" :label="'Profesores activos'" :value="{{ $kpis['profesores'] }}" :color="'green'">
+    <x-stat-card :icon="'bi-person-badge'" :label="'Profesores activos'" :value="$kpis['profesores']" :color="'green'">
         <div class="kpi-trend flat" data-kpi-trend>–</div>
     </x-stat-card>
 
-    <x-stat-card :icon="'bi-calendar-week'" :label="'Horarios programados'" :value="{{ $kpis['horarios'] }}" :color="'orange'">
+    <x-stat-card :icon="'bi-calendar-week'" :label="'Horarios programados'" :value="$kpis['horarios']" :color="'orange'">
         <div class="kpi-trend flat" data-kpi-trend>–</div>
     </x-stat-card>
 
-    <x-stat-card :icon="'bi-book'" :label="'Cursos disponibles'" :value="{{ $kpis['cursos'] }}" :color="'teal'">
+    <x-stat-card :icon="'bi-book'" :label="'Cursos disponibles'" :value="$kpis['cursos']" :color="'teal'">
         <div class="kpi-trend flat" data-kpi-trend>–</div>
     </x-stat-card>
 </div>
@@ -118,11 +118,16 @@
                         <div class="card-body">
                             <div class="h3 mb-1">{{ $total }}</div>
                             <div class="text-muted small">
-                                @match($origen)
-                                    @case('HD') Hora Docente (PTC) @break
-                                    @case('CA') Carga Asignada (PA) @break
-                                    @default {{ $origen }} @break
-                                @endmatch
+                                @switch($origen)
+                                    @case('HD')
+                                        Hora Docente (PTC)
+                                        @break
+                                    @case('CA')
+                                        Carga Asignada (PA)
+                                        @break
+                                    @default
+                                        {{ $origen }}
+                                @endswitch
                             </div>
                         </div>
                     </div>

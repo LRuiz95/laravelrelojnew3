@@ -53,7 +53,7 @@ class DashboardController extends Controller
             ->mapWithKeys(fn ($h) => [$h->origen_horario ?: 'SIN_DEFINIR' => $h->total])
             ->toArray();
 
-        return view('academia.dashboard', [
+        return view('academia.dashboard.index', [
             'ciclo' => $ciclo,
             'kpis' => $kpis,
             'horariosPorDia' => $horariosPorDia,

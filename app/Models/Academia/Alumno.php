@@ -7,9 +7,9 @@ namespace App\Models\Academia;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\DB;
 
 class Alumno extends Model
 {
@@ -55,14 +55,6 @@ class Alumno extends Model
     public $incrementing = false;
     protected $keyType = 'int';
 
-    public function grupos(): BelongsToMany
-    {
-        return $this->belongsToMany(Grupo::class, 'alumnos_grupos', 'numero_alumno', 
-            ['codigo_grupo', 'inicial', 'final', 'periodo'])
-            ->withPivot('fecha_inscripcion', 'estatus', 'observaciones')
-            ->withTimestamps();
-    }
-
     public function kardex(): HasMany
     {
         return $this->hasMany(AlumnoKardex::class, 'numero_alumno', 'numero_alumno');
@@ -95,8 +87,13 @@ class Alumno extends Model
 
     public function scopePorCiclo($query, int $inicial, int $final, int $periodo)
     {
-        return $query->whereHas('grupos', fn ($q) => $q->where('inicial', $inicial)
-            ->where('final', $final)->where('periodo', $periodo));
+        return $query->whereExists(fn ($q) => $q
+            ->select(DB::raw(1))
+            ->from('alumnos_grupos')
+            ->whereColumn('alumnos_grupos.numero_alumno', 'alumnos.numero_alumno')
+            ->where('alumnos_grupos.inicial', $inicial)
+            ->where('alumnos_grupos.final', $final)
+            ->where('alumnos_grupos.periodo', $periodo));
     }
 
     protected function nombreCompleto(): Attribute

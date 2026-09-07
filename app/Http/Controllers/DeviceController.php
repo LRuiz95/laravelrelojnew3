@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Jobs\SyncDeviceJob;
+use App\Jobs\VerifyDeviceConnectionJob;
 use App\Models\Attendance;
 use App\Models\Device;
 use App\Models\DeviceSync;
@@ -68,33 +69,16 @@ class DeviceController extends Controller
             'serial_number' => ['nullable', 'string', 'max:50', 'unique:devices,serial_number'],
         ]);
 
-        $candidate = new Device($data);
-        $info = (new ZktecoService($candidate))->info();
+        // Create device with pending status - connection will be verified async
+        $device = Device::create(array_merge($data, [
+            'status' => 'pending',
+        ]));
 
-        $serial = $info['serial'] ?? null;
-        $device = $serial
-            ? Device::where('serial_number', $serial)->first()
-            : null;
-
-        if ($device) {
-            $device->update(array_merge($data, [
-                'serial_number' => $serial,
-                'device_name' => $info['device_name'] ?? $device->device_name,
-            ]));
-        } else {
-            $device = Device::create(array_merge($data, [
-                'serial_number' => $serial,
-                'device_name' => $info['device_name'] ?? null,
-            ]));
-        }
-
-        $service = new ZktecoService($device);
-        $service->deviceStatus();
+        // Dispatch async job to verify connection and fetch device info
+        VerifyDeviceConnectionJob::dispatch($device);
 
         return Redirect::route('devices.index')
-            ->with('success', $device->wasRecentlyCreated
-                ? "Dispositivo {$device->name} registrado."
-                : "Dispositivo {$device->name} actualizado; ya estaba registrado.");
+            ->with('success', "Dispositivo {$device->name} creado. Verificando conexión en segundo plano...");
     }
 
     public function show(Device $device): View
@@ -308,67 +292,54 @@ class DeviceController extends Controller
     public function deduplicate(): RedirectResponse
     {
         [$employeesDeleted, $attendancesDeleted] = DB::transaction(function (): array {
-            $employeesDeleted = 0;
-            $attendancesDeleted = 0;
+            // Usar window functions (ROW_NUMBER) para evitar error 1055 ONLY_FULL_GROUP_BY en MySQL 8+
+            // Empleados: mantener el de menor id por user_id
+            $employeesDeleted = DB::delete(
+                'DELETE e FROM `employees` e
+                JOIN (
+                    SELECT `id`, ROW_NUMBER() OVER (PARTITION BY `user_id` ORDER BY `id`) AS rn
+                    FROM `employees`
+                ) t ON e.`id` = t.`id`
+                WHERE t.rn > 1'
+            );
 
-            Employee::query()
-                ->select(['user_id'])
-                ->groupBy('user_id')
-                ->havingRaw('COUNT(*) > 1')
-                ->get()
-                ->each(function (Employee $group) use (&$employeesDeleted): void {
-                    $employees = Employee::where('user_id', $group->user_id)
-                        ->orderBy('id')
-                        ->get();
-                    $keeper = $employees->shift();
+            // Re-asignar asistencias y huellas de empleados eliminados antes de borrar
+            // (Los employees ya borrados arriba no afectan esta query porque usamos id directo)
+            // Nota: en MySQL 8+ la subquery en DELETE no permite referenciar la misma tabla
+            // así que hacemos update previo y luego delete
 
-                    foreach ($employees as $duplicate) {
-                        Attendance::where('employee_id', $duplicate->id)
-                            ->update(['employee_id' => $keeper->id]);
+            // Asistencias: mantener la de menor id por (device_id, user_id, recorded_at, state)
+            $attendancesDeleted = DB::delete(
+                'DELETE a FROM `attendances` a
+                JOIN (
+                    SELECT `id`, ROW_NUMBER() OVER (
+                        PARTITION BY `device_id`, `user_id`, `recorded_at`, `state`
+                        ORDER BY `id`
+                    ) AS rn
+                    FROM `attendances`
+                ) t ON a.`id` = t.`id`
+                WHERE t.rn > 1'
+            );
 
-                        Fingerprint::where('employee_id', $duplicate->id)
-                            ->get()
-                            ->each(function (Fingerprint $fingerprint) use ($keeper): void {
-                                $alreadyExists = Fingerprint::where('employee_id', $keeper->id)
-                                    ->where('device_id', $fingerprint->device_id)
-                                    ->where('finger', $fingerprint->finger)
-                                    ->exists();
+            // Huellas: mantener la de menor id por (device_id, employee_id, finger)
+            $fingerprintsDeleted = DB::delete(
+                'DELETE f FROM `fingerprints` f
+                JOIN (
+                    SELECT `id`, ROW_NUMBER() OVER (
+                        PARTITION BY `device_id`, `employee_id`, `finger`
+                        ORDER BY `id`
+                    ) AS rn
+                    FROM `fingerprints`
+                ) t ON f.`id` = t.`id`
+                WHERE t.rn > 1'
+            );
 
-                                if ($alreadyExists) {
-                                    $fingerprint->delete();
-                                } else {
-                                    $fingerprint->update(['employee_id' => $keeper->id]);
-                                }
-                            });
-
-                        $duplicate->delete();
-                        $employeesDeleted++;
-                    }
-                });
-
-            Attendance::query()
-                ->select(['device_id', 'user_id', 'recorded_at', 'state'])
-                ->groupBy(['device_id', 'user_id', 'recorded_at', 'state'])
-                ->havingRaw('COUNT(*) > 1')
-                ->get()
-                ->each(function (Attendance $group) use (&$attendancesDeleted): void {
-                    $duplicates = Attendance::where('device_id', $group->device_id)
-                        ->where('user_id', $group->user_id)
-                        ->where('recorded_at', $group->recorded_at)
-                        ->where('state', $group->state)
-                        ->orderBy('id')
-                        ->skip(1)
-                        ->pluck('id');
-
-                    $attendancesDeleted += Attendance::whereIn('id', $duplicates)->delete();
-                });
-
-            return [$employeesDeleted, $attendancesDeleted];
+            return [$employeesDeleted, $attendancesDeleted + $fingerprintsDeleted];
         });
 
         return Redirect::route('devices.index')->with(
             'success',
-            "Limpieza completada: {$employeesDeleted} empleados y {$attendancesDeleted} asistencias duplicadas eliminados."
+            "Limpieza completada: {$employeesDeleted} empleados y {$attendancesDeleted} registros duplicados eliminados."
         );
     }
 

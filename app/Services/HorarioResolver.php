@@ -43,7 +43,14 @@ class HorarioResolver
             ->get();
 
         return $horarios->map(function (HorarioDet $h) use ($fechaClase) {
-            $asistencia = AlumnoKardex::where('numero_alumno', $h->grupo->alumnos->first()?->numero_alumno ?? 0)
+            $primerAlumno = DB::table('alumnos_grupos')
+                ->where('codigo_grupo', $h->codigo_grupo)
+                ->where('inicial', $h->inicial)
+                ->where('final', $h->final)
+                ->where('periodo', $h->periodo)
+                ->value('numero_alumno');
+
+            $asistencia = AlumnoKardex::where('numero_alumno', $primerAlumno ?? 0)
                 ->where('inicial', $h->inicial)
                 ->where('final', $h->final)
                 ->where('periodo', $h->periodo)

@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', '{{ $alumno->nombre_completo }} - {{ $ciclo->label }}')
+@section('title', $alumno->nombre_completo . ' - ' . $ciclo->label)
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -143,12 +143,15 @@
                                 <td>{{ $m['EXR'] ?? '—' }}</td>
                                 <td class="fw-semibold">{{ $m['CT'] ?? '—' }}</td>
                                 <td>
-                                    <span class="badge {{ match($m['ESTADO']) {
-                                        'APROBADO' => 'bg-success',
-                                        'REPROBADO' => 'bg-danger',
-                                        'SIN DERECHO' => 'bg-warning text-dark',
-                                        default => 'bg-secondary'
-                                    }}">
+                                    @php
+                                        $estadoClass = match($m['ESTADO']) {
+                                            'APROBADO' => 'bg-success',
+                                            'REPROBADO' => 'bg-danger',
+                                            'SIN DERECHO' => 'bg-warning text-dark',
+                                            default => 'bg-secondary'
+                                        };
+                                    @endphp
+                                    <span class="badge {{ $estadoClass }}">
                                         {{ $m['ESTADO'] }}
                                     </span>
                                 </td>

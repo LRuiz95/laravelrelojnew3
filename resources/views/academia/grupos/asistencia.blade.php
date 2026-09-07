@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Asistencia: {{ $grupo->codigo_grupo }}')
+@section('title', 'Asistencia: ' . $grupo->codigo_grupo)
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -38,22 +38,22 @@
 
 {{-- KPIs --}}
 <div class="kpi-grid mb-4">
-    <x-stat-card :icon="'bi-calendar-week'" :label="'Total clases'" :value="{{ $stats['total_clases'] }}" :color="'purple'">
+    <x-stat-card :icon="'bi-calendar-week'" :label="'Total clases'" :value="$stats['total_clases']" :color="'purple'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-check-circle'" :label="'Capturadas'" :value="{{ $stats['capturadas'] }}/{{ $stats['total_clases'] }}" :color="'green'">
+    <x-stat-card :icon="'bi-check-circle'" :label="'Capturadas'" :value="$stats['capturadas'] . '/' . $stats['total_clases']" :color="'green'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-check'" :label="'Presentes'" :value="{{ $stats['presentes'] }}" :color="'success'">
+    <x-stat-card :icon="'bi-check'" :label="'Presentes'" :value="$stats['presentes']" :color="'success'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-x-circle'" :label="'Ausentes'" :value="{{ $stats['ausentes'] }}" :color="'danger'">
+    <x-stat-card :icon="'bi-x-circle'" :label="'Ausentes'" :value="$stats['ausentes']" :color="'danger'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-clock'" :label="'Retardos'" :value="{{ $stats['retardos'] }}" :color="'warning'">
+    <x-stat-card :icon="'bi-clock'" :label="'Retardos'" :value="$stats['retardos']" :color="'warning'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-shield-check'" :label="'Justificados'" :value="{{ $stats['justificados'] }}" :color="'info'">
+    <x-stat-card :icon="'bi-shield-check'" :label="'Justificados'" :value="$stats['justificados']" :color="'info'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
 </div>

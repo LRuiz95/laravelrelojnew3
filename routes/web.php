@@ -1,15 +1,6 @@
 <?php
 
 use App\Http\Controllers\Academia\DashboardController as AcademiaDashboardController;
-use App\Http\Controllers\Academia\GrupoController;
-use App\Http\Controllers\Academia\AlumnoController;
-use App\Http\Controllers\Academia\ProfesorController;
-use App\Http\Controllers\Academia\HorarioController;
-use App\Http\Controllers\Academia\KardexController;
-use App\Http\Controllers\Academia\CicloController;
-use App\Http\Controllers\Academia\CursoController;
-use App\Http\Controllers\Academia\PlanController;
-use App\Http\Controllers\Academia\ApiController;
 use App\Http\Controllers\Academia\CicloController as AcademiaCicloController;
 use App\Http\Controllers\Academia\CursoController as AcademiaCursoController;
 use App\Http\Controllers\Academia\PlanController as AcademiaPlanController;
@@ -24,11 +15,12 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\FirebirdController;
 use App\Http\Controllers\OperationsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [AuthController::class, 'create'])->middleware('guest')->name('login');
-Route::post('/login', [AuthController::class, 'store'])->middleware('guest')->name('login.store');
+Route::post('/login', [AuthController::class, 'store'])->middleware(['guest', 'throttle:5,1'])->name('login.store');
 Route::post('/logout', [AuthController::class, 'destroy'])->middleware('auth')->name('logout');
 
 Route::middleware('auth')->group(function () {
@@ -100,9 +92,21 @@ Route::middleware('auth')->group(function () {
 
     // Firebird Sync
     Route::prefix('firebird')->name('firebird.')->group(function () {
-        Route::get('/', fn () => view('firebird.index'))->name('index');
-        Route::get('sync/{sync}', fn ($sync) => view('firebird.sync', ['sync' => \App\Models\FirebirdSync::findOrFail($sync)]))->name('sync');
+        Route::get('/', [FirebirdController::class, 'index'])->name('index');
+        Route::post('/start', [FirebirdController::class, 'startSync'])->middleware('admin')->name('start');
+        Route::get('sync/{sync}', [FirebirdController::class, 'sync'])->name('sync');
     });
+
+    // Ciclo selector - AJAX endpoint
+    Route::post('/academia/set-ciclo', function (\Illuminate\Http\Request $request) {
+        $label = $request->input('ciclo_label');
+        if ($label) {
+            session(\App\Services\CicloActualService::SESSION_KEY, $label);
+        } else {
+            session()->forget(\App\Services\CicloActualService::SESSION_KEY);
+        }
+        return response()->json(['success' => true, 'ciclo' => $label]);
+    })->middleware('auth')->name('academia.set-ciclo');
 
     Route::prefix('devices')->name('devices.')->group(function () {
         Route::get('/', [DeviceController::class, 'index'])->name('index');
@@ -117,7 +121,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{device}', [DeviceController::class, 'destroy'])->middleware('admin')->name('destroy');
 
         Route::post('/{device}/check-status', [DeviceController::class, 'checkStatus'])->name('check-status');
-        Route::middleware('admin')->group(function () {
+        Route::middleware(['admin', 'throttle:10,1'])->group(function () {
             Route::post('/deduplicate', [DeviceController::class, 'deduplicate'])->name('deduplicate');
             Route::post('/{device}/sync-users', [DeviceController::class, 'syncUsers'])->name('sync-users');
             Route::post('/{device}/sync-fingerprints', [DeviceController::class, 'syncFingerprints'])->name('sync-fingerprints');
@@ -134,6 +138,7 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('employees')->name('employees.')->group(function () {
         Route::get('/', [EmployeeController::class, 'index'])->name('index');
+        Route::get('/search', [EmployeeController::class, 'search'])->name('search');
         Route::get('/create', [EmployeeController::class, 'create'])->middleware('admin')->name('create');
         Route::get('/{employee}/edit', [EmployeeController::class, 'edit'])->middleware('admin')->name('edit');
         Route::middleware('admin')->group(function () {

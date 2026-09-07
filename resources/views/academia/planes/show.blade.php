@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', '{{ $plan->nombre_plan }}')
+@section('title', $plan->nombre_plan)
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -17,16 +17,16 @@
 
 {{-- KPIs --}}
 <div class="kpi-grid mb-4">
-    <x-stat-card :icon="'bi-journal-bookmark'" :label="'Materias'" :value="{{ $plan->materias_count }}" :color="'blue'">
+    <x-stat-card :icon="'bi-journal-bookmark'" :label="'Materias'" :value="$plan->materias_count" :color="'blue'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-clock'" :label="'Horas Teoría'" :value="{{ $plan->materias->sum('horas_teoria') }}" :color="'purple'">
+    <x-stat-card :icon="'bi-clock'" :label="'Horas Teoría'" :value="$plan->materias->sum('horas_teoria')" :color="'purple'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-gear'" :label="'Horas Práctica'" :value="{{ $plan->materias->sum('horas_practica') }}" :color="'orange'">
+    <x-stat-card :icon="'bi-gear'" :label="'Horas Práctica'" :value="$plan->materias->sum('horas_practica')" :color="'orange'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-mortarboard'" :label="'Créditos Totales'" :value="{{ $plan->materias->sum('creditos') }}" :color="'teal'">
+    <x-stat-card :icon="'bi-mortarboard'" :label="'Créditos Totales'" :value="$plan->materias->sum('creditos')" :color="'teal'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
 </div>

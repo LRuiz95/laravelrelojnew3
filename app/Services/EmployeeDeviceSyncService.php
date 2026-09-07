@@ -43,7 +43,7 @@ final class EmployeeDeviceSyncService
             'uid' => $enrollment?->pivot->device_uid,
             'user_id' => $employee->user_id,
             'name' => $employee->name,
-            'password' => $package->password ?: '1234',
+            'password' => $package->password ?: $device->password,
             'role' => $package->role,
             'card_number' => $package->cardNumber,
         ]);

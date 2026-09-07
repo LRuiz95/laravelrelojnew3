@@ -14,20 +14,80 @@ use Throwable;
 
 class CycleDirectSync implements SyncStrategyInterface
 {
-    /** Tablas que se sincronizan por ciclo: DELETE + INSERT */
+    /**
+     * Tablas que se sincronizan por ciclo: DELETE + INSERT.
+     * Orden respetando foreign keys: CICLOS es raíz, GRUPOS depende de CICLOS,
+     * CURSOS de CICLOS, CURSOS_DET de CURSOS, ALUMNOS_GRUPOS de ALUMNOS+GRUPOS,
+     * HORARIOS_DET de CICLOS+GRUPOS+MATERIAS+PROFESORES.
+     */
     protected const TABLAS_CICLO_DIRECTO = [
-        'GRUPOS',
-        'HORARIOS_DET',
-        'CURSOS',
-        'CURSOS_DET',
-        'CICLOS',
+        'CICLOS',        // Raíz: sin FKs a otras tablas académicas
+        'GRUPOS',        // Depende de: CICLOS, NIVELES, TURNOS, SEDES
+        'CURSOS',        // Depende de: CICLOS
+        'CURSOS_DET',    // Depende de: CURSOS, MATERIAS
+        'ALUMNOS_GRUPOS', // Depende de: ALUMNOS, GRUPOS — filtrado por ciclo
+        'HORARIOS_DET',  // Depende de: CICLOS, GRUPOS, PROFESORES, MATERIAS, SEDES
     ];
 
+    /**
+     * Alumnos: solo ALUMNOS_NIVELES (para obtener IDs) y ALUMNOS (datos completos).
+     * ALUMNOS_KARDEX se excluyó del sync — no se sincroniza.
+     */
     protected const TABLAS_ALUMNOS_CICLO = [
         'ALUMNOS_NIVELES',
         'ALUMNOS',
-        'ALUMNOS_GRUPOS',
-        'ALUMNOS_KARDEX',
+    ];
+
+    /**
+     * Mapeo explícito: Firebird column name → MySQL column name
+     * Solo para columnas donde los nombres NO coinciden con strtolower()
+     */
+    protected const COLUMN_MAP = [
+        'HORARIOS_DET' => [
+            'CLAVEPROFESOR'   => 'clave_profesor',
+            'CLAVEASIGNATURA' => 'clave_asignatura',
+            'CODIGO_GRUPO'    => 'codigo_grupo',
+        ],
+        'CURSOS' => [
+            'CODIGO_CURSO' => 'clave_curso',
+            'DESCRIPCION'  => 'nombre_curso',
+            'CODIGO_GRUPO' => 'codigo_grupo',
+        ],
+        'CURSOS_DET' => [
+            'CLAVEASIGNATURA' => 'clave_asignatura',
+            'CODIGO_CURSO'    => 'clave_curso',
+        ],
+        'GRUPOS' => [
+            'CODIGO_GRUPO' => 'codigo_grupo',
+        ],
+        'CICLOS' => [],
+        'ALUMNOS_NIVELES' => [
+            'NUMEROALUMNO' => 'numero_alumno',
+        ],
+        'ALUMNOS' => [
+            'NUMEROALUMNO' => 'numero_alumno',
+            'APELLIDOP'    => 'paterno',
+            'APELLIDOM'    => 'materno',
+            'NOMBRE'       => 'nombre',
+        ],
+        'ALUMNOS_GRUPOS' => [
+            'NUMEROALUMNO'  => 'numero_alumno',
+            'CODIGO_GRUPO'  => 'codigo_grupo',
+        ],
+    ];
+
+    /**
+     * PK lógica por tabla (no el id auto-increment de Laravel)
+     */
+    protected const LOGICAL_PK = [
+        'GRUPOS'          => ['codigo_grupo', 'inicial', 'final', 'periodo'],
+        'HORARIOS_DET'    => ['inicial', 'final', 'periodo', 'codigo_grupo', 'clave_profesor', 'clave_asignatura', 'dia', 'sesion'],
+        'CURSOS'          => ['inicial', 'final', 'periodo', 'clave_curso'],
+        'CURSOS_DET'      => ['inicial', 'final', 'periodo', 'clave_curso', 'clave_asignatura'],
+        'CICLOS'          => ['inicial', 'final', 'periodo'],
+        'ALUMNOS_NIVELES' => ['numero_alumno', 'inicial', 'final', 'periodo'],
+        'ALUMNOS'         => ['numero_alumno'],
+        'ALUMNOS_GRUPOS'  => ['numero_alumno', 'codigo_grupo', 'inicial', 'final', 'periodo'],
     ];
 
     public function execute(
@@ -35,8 +95,17 @@ class CycleDirectSync implements SyncStrategyInterface
         FirebirdSync $sync,
         ?string $ciclo,
         bool $deleteOrphans,
+        array $tables = [],
+        bool $skipExisting = true,
         callable $progressCallback
     ): array {
+        // Filtrar tablas si se proporcionan (usar variables locales, no modificar constantes)
+        $tablasCiclo = self::TABLAS_CICLO_DIRECTO;
+        $tablasAlumnos = self::TABLAS_ALUMNOS_CICLO;
+        if (!empty($tables)) {
+            $tablasCiclo = array_intersect(self::TABLAS_CICLO_DIRECTO, $tables);
+            $tablasAlumnos = array_intersect(self::TABLAS_ALUMNOS_CICLO, $tables);
+        }
         if (! $ciclo) {
             return $this->errorResult('sync_ciclo requiere parámetro ciclo');
         }
@@ -52,9 +121,9 @@ class CycleDirectSync implements SyncStrategyInterface
         $log[] = ['tipo' => 'info', 'msg' => "=== CICLO {$I}-{$F}-{$P} ==="];
         $log[] = ['tipo' => 'info', 'msg' => "--- FASE 1: Tablas directas ---"];
 
-        foreach (self::TABLAS_CICLO_DIRECTO as $tabla) {
+        foreach ($tablasCiclo as $tabla) {
             $result = $this->syncCycleTable(
-                $firebirdReader, $mysql, $tabla, $I, $F, $P, $deleteOrphans
+                $firebirdReader, $mysql, $tabla, $I, $F, $P, $deleteOrphans, $skipExisting
             );
             $log = array_merge($log, $result['log']);
             $errors = array_merge($errors, $result['errors']);
@@ -70,7 +139,7 @@ class CycleDirectSync implements SyncStrategyInterface
         // 2.1 ALUMNOS_NIVELES (con filtro ciclo) → obtener IDs de alumnos
         $tabla = 'ALUMNOS_NIVELES';
         $result = $this->syncCycleTable(
-            $firebirdReader, $mysql, $tabla, $I, $F, $P, $deleteOrphans
+            $firebirdReader, $mysql, $tabla, $I, $F, $P, $deleteOrphans, $skipExisting
         );
         $log = array_merge($log, $result['log']);
         $errors = array_merge($errors, $result['errors']);
@@ -84,12 +153,13 @@ class CycleDirectSync implements SyncStrategyInterface
         $log[] = ['tipo' => 'info', 'msg' => "Alumnos encontrados: " . count($alumnoIds)];
 
         if (empty($alumnoIds)) {
-            $log[] = ['tipo' => 'skip', 'msg' => "No hay alumnos, saltando ALUMNOS/GRUPOS/KARDEX"];
+            $log[] = ['tipo' => 'skip', 'msg' => "No hay alumnos, saltando ALUMNOS"];
         } else {
-            // 2.2 ALUMNOS, ALUMNOS_GRUPOS, ALUMNOS_KARDEX (SIN filtro ciclo - datos completos)
-            foreach (['ALUMNOS', 'ALUMNOS_GRUPOS', 'ALUMNOS_KARDEX'] as $tabla) {
+            // 2.2 ALUMNOS (SIN filtro ciclo - datos completos del alumno)
+            $tablasAlumnosSinNiveles = array_diff($tablasAlumnos, ['ALUMNOS_NIVELES']);
+            foreach ($tablasAlumnosSinNiveles as $tabla) {
                 $result = $this->syncTableWithoutCycleFilter(
-                    $firebirdReader, $mysql, $tabla, 'NUMEROALUMNO', $alumnoIds, $deleteOrphans
+                    $firebirdReader, $mysql, $tabla, 'NUMEROALUMNO', $alumnoIds, $deleteOrphans, $skipExisting
                 );
                 $log = array_merge($log, $result['log']);
                 $errors = array_merge($errors, $result['errors']);
@@ -118,7 +188,8 @@ class CycleDirectSync implements SyncStrategyInterface
         PDO $mysql,
         string $tabla,
         int $I, int $F, int $P,
-        bool $deleteOrphans
+        bool $deleteOrphans,
+        bool $skipExisting = true
     ): array {
         $log = [];
         $errors = [];
@@ -134,7 +205,7 @@ class CycleDirectSync implements SyncStrategyInterface
                 ? $fbReader->fetchRows($tabla, $fbCols, "INICIAL = ? AND FINAL = ? AND PERIODO = ?", [$I, $F, $P])
                 : [];
 
-            $result = $this->smartSync($mysql, $tabla, $fbCols, $myCols, $datos, $deleteOrphans, "INICIAL = ? AND FINAL = ? AND PERIODO = ?", [$I, $F, $P]);
+            $result = $this->smartSync($mysql, $tabla, $fbCols, $myCols, $datos, $deleteOrphans, "INICIAL = ? AND FINAL = ? AND PERIODO = ?", [$I, $F, $P], $skipExisting);
             $log = array_merge($log, $result['log']);
             $errors = array_merge($errors, $result['errors']);
             $created += $result['created'];
@@ -156,7 +227,8 @@ class CycleDirectSync implements SyncStrategyInterface
         string $tabla,
         string $idColumn,
         array $ids,
-        bool $deleteOrphans
+        bool $deleteOrphans,
+        bool $skipExisting = true
     ): array {
         $log = [];
         $errors = [];
@@ -170,7 +242,7 @@ class CycleDirectSync implements SyncStrategyInterface
 
             if ($total > 0) {
                 $datos = $fbReader->fetchRowsIn($tabla, $fbCols, $idColumn, $ids);
-                $result = $this->smartSync($mysql, $tabla, $fbCols, $myCols, $datos, $deleteOrphans);
+                $result = $this->smartSync($mysql, $tabla, $fbCols, $myCols, $datos, $deleteOrphans, null, [], $skipExisting);
                 $log = array_merge($log, $result['log']);
                 $errors = array_merge($errors, $result['errors']);
                 $created += $result['created'];
@@ -196,7 +268,8 @@ class CycleDirectSync implements SyncStrategyInterface
         array $datosFb,
         bool $deleteOrphans,
         ?string $whereDelete = null,
-        array $paramsDelete = []
+        array $paramsDelete = [],
+        bool $skipExisting = true
     ): array {
         $log = [];
         $errors = [];
@@ -214,12 +287,34 @@ class CycleDirectSync implements SyncStrategyInterface
             return compact('log', 'errors', 'created', 'updated', 'deleted', 'processed');
         }
 
-        // Mapear columnas FB → MySQL
+        // Mapear columnas FB → MySQL (usar COLUMN_MAP explícito + fallback a strtolower)
         $fbMap = [];
+        $explicitMap = self::COLUMN_MAP[$tabla] ?? [];
         foreach ($fbCols as $fc) {
-            $lc = strtolower($fc);
-            if (in_array($lc, $myCols)) $fbMap[$lc] = $fc;
+            if (isset($explicitMap[$fc])) {
+                // 1) Match exacto en COLUMN_MAP (ej. CLAVEPROFESOR → clave_profesor)
+                $myCol = $explicitMap[$fc];
+                if (in_array($myCol, $myCols)) {
+                    $fbMap[$myCol] = $fc;
+                }
+            } else {
+                // 2) strtolower directo (ej. DIA → dia)
+                $lc = strtolower($fc);
+                if (in_array($lc, $myCols)) {
+                    $fbMap[$lc] = $fc;
+                } else {
+                    // 3) Normalizar quitando guiones bajos (ej. CLAVEASIGNATURA → clave_asignatura)
+                    $normFb = str_replace('_', '', $lc);
+                    foreach ($myCols as $myCol) {
+                        if (str_replace('_', '', $myCol) === $normFb) {
+                            $fbMap[$myCol] = $fc;
+                            break;
+                        }
+                    }
+                }
+            }
         }
+        $log[] = ['tipo' => 'info', 'msg' => "{$tabla}: " . count($fbMap) . " columnas mapeadas: " . implode(', ', array_keys($fbMap))];
         if (empty($fbMap)) {
             $log[] = ['tipo' => 'skip', 'msg' => "{$tabla}: sin columnas comunes"];
             return compact('log', 'errors', 'created', 'updated', 'deleted', 'processed');
@@ -232,8 +327,10 @@ class CycleDirectSync implements SyncStrategyInterface
             $mappedFb[] = $m;
         }
 
-        // PK MySQL
-        $pkCols = $this->getMysqlPk($mysql, $tabla);
+        // PK MySQL (usar LOGICAL_PK si existe, fallback a detección automática)
+        $pkCols = self::LOGICAL_PK[$tabla] ?? $this->getMysqlPk($mysql, $tabla);
+        // Filtrar PK solo con columnas que existen en el mapeo
+        $pkCols = array_values(array_filter($pkCols, fn($pk) => isset($fbMap[$pk])));
         if (empty($pkCols)) {
             $log[] = ['tipo' => 'skip', 'msg' => "{$tabla}: sin PK definida"];
             return compact('log', 'errors', 'created', 'updated', 'deleted', 'processed');
@@ -279,7 +376,7 @@ class CycleDirectSync implements SyncStrategyInterface
                         break;
                     }
                 }
-                if ($changed) $toUpdate[] = $row;
+                if ($changed && !$skipExisting) $toUpdate[] = $row;
                 unset($existing[$pkKey]);
             }
         }

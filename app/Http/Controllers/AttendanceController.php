@@ -19,7 +19,7 @@ class AttendanceController extends Controller
 
         // Usar asistencias únicas (por empleado + fecha) solo sin filtros;
         // CON filtros se listan los registros crudos que cumplan el criterio.
-        $hasFilters = collect(['device_id', 'state', 'from', 'to'])
+        $hasFilters = collect(['device_id', 'type', 'from', 'to'])
             ->map(fn ($key) => $request->query($key))
             ->contains(fn ($value) => $value !== null && $value !== '');
 
@@ -78,11 +78,11 @@ class AttendanceController extends Controller
         if ($deviceId = $request->query('device_id')) {
             $query->where('device_id', $deviceId);
         }
-        if (($state = $request->query('state')) !== null && $state !== '') {
-            // El parámetro "state" del formulario selecciona el MODO de
+        if (($type = $request->query('type')) !== null && $type !== '') {
+            // El parámetro "type" del formulario selecciona el MODO de
             // checado, que en este firmware vive en la columna "type"
             // (state viene constante en 1 — ver Attendance::punchStatus()).
-            $query->where('type', (int) $state);
+            $query->where('type', (int) $type);
         }
         if ($from = $request->query('from')) {
             $query->whereDate('recorded_at', '>=', $from);

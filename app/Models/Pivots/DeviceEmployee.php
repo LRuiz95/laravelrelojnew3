@@ -40,17 +40,14 @@ final class DeviceEmployee extends Pivot
      */
     protected $touches = ['employee'];
 
-    protected function casts(): array
-    {
-        return [
-            'role' => 'integer',
-            'device_uid' => 'integer',
-            'fingerprint_count' => 'integer',
-            'active' => 'boolean',
-            // El PIN del checador es credencial: cifrado en reposo.
-            'password' => 'encrypted',
-        ];
-    }
+    protected $casts = [
+        'role' => 'integer',
+        'device_uid' => 'integer',
+        'fingerprint_count' => 'integer',
+        'active' => 'boolean',
+        // El PIN del checador es credencial: cifrado en reposo.
+        'password' => 'encrypted',
+    ];
 
     public static function roles(): array
     {

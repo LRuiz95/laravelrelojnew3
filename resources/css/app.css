@@ -170,6 +170,19 @@ html[data-theme="light"] .app-sidebar {
 .app-sidebar .profile-copy,
 .app-sidebar .nav-group-title { transition: opacity 120ms ease-in-out; }
 
+/* Scrollable inner content area */
+.app-sidebar-inner {
+	flex: 1;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-bottom: 16px; /* space before profile */
+	margin: 0 -14px; /* negative margin to extend to edges */
+	padding: 0 14px 16px; /* restore horizontal padding, add bottom padding */
+}
+.app-sidebar-inner::-webkit-scrollbar { width: 6px; }
+.app-sidebar-inner::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+.app-sidebar-inner::-webkit-scrollbar-track { background: transparent; }
+
 .brand {
 	display: flex;
 	align-items: center;
@@ -521,6 +534,64 @@ html[data-theme="light"] .theme-toggle .icon-moon { opacity: 1; transform: rotat
 	font-size: 11px;
 	white-space: nowrap;
 	background: var(--surface);
+}
+
+/* Ciclo selector in topbar */
+.ciclo-selector .dropdown-toggle {
+	padding: 6px 12px;
+	border: 1px solid var(--border);
+	border-radius: 9px;
+	color: var(--text-secondary);
+	font-family: 'JetBrains Mono', monospace;
+	font-size: 11px;
+	white-space: nowrap;
+	background: var(--surface);
+	max-width: 220px;
+	transition: all 0.2s ease;
+}
+.ciclo-selector .dropdown-toggle:hover {
+	border-color: var(--primary);
+	color: var(--text);
+	background: var(--surface-elevated);
+}
+.ciclo-selector .dropdown-toggle:focus {
+	box-shadow: 0 0 0 2px var(--primary-ring);
+}
+.ciclo-selector .dropdown-menu {
+	background: var(--surface-elevated);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	box-shadow: var(--shadow-modal);
+	margin-top: 8px;
+	padding: 8px;
+	max-height: 320px;
+	overflow-y: auto;
+}
+.ciclo-selector .dropdown-item {
+	border-radius: 8px;
+	padding: 8px 12px;
+	font-size: 13px;
+	color: var(--text);
+	transition: background 0.15s ease;
+}
+.ciclo-selector .dropdown-item:hover {
+	background: var(--primary-soft);
+	color: var(--text);
+}
+.ciclo-selector .dropdown-item.active {
+	background: var(--primary);
+	color: var(--text-inverse);
+}
+.ciclo-selector .dropdown-header {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-tertiary);
+	padding: 4px 12px 8px;
+}
+.ciclo-selector .dropdown-divider {
+	border-color: var(--border);
+	margin: 4px 0;
 }
 
 /* ═══════════════ ALERTAS GLOBALES ═══════════════ */

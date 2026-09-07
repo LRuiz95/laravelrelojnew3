@@ -13,6 +13,7 @@ use App\Models\Academia\Sede;
 use App\Models\Academia\Nivel;
 use App\Models\Academia\Turno;
 use App\Services\CicloActualService;
+use App\Http\Requests\CursoFormRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -81,13 +82,7 @@ class CursoController extends Controller
     {
         $ciclo = $this->cicloService->resolve($request);
         
-        $request->validate([
-            'clave_curso' => 'required|string|max:20|unique:cursos,clave_curso',
-            'nombre_curso' => 'required|string|max:100',
-            'nivel' => 'required|string|max:10|exists:niveles,nivel',
-            'turno' => 'required|string|max:10|exists:turnos,turno',
-            'id_campus' => 'nullable|string|max:20|exists:sedes,id_campus',
-        ]);
+        $request->validate((new CursoFormRequest)->rules(), (new CursoFormRequest)->messages());
 
         Curso::create(array_merge($request->only([
             'clave_curso', 'nombre_curso', 'nivel', 'turno', 'id_campus'
@@ -117,13 +112,7 @@ class CursoController extends Controller
 
     public function update(Request $request, Curso $curso): RedirectResponse
     {
-        $request->validate([
-            'nombre_curso' => 'required|string|max:100',
-            'nivel' => 'required|string|max:10|exists:niveles,nivel',
-            'turno' => 'required|string|max:10|exists:turnos,turno',
-            'id_campus' => 'nullable|string|max:20|exists:sedes,id_campus',
-            'activo' => 'boolean',
-        ]);
+        $request->validate((new CursoFormRequest)->rules(), (new CursoFormRequest)->messages());
 
         $curso->update($request->only([
             'nombre_curso', 'nivel', 'turno', 'id_campus', 'activo'

@@ -1,4 +1,4 @@
-@props(['icon', 'label', 'value', 'color', 'slot'])
+@props(['icon', 'label', 'value', 'color'])
 
 <div class="kpi-card card h-100 border-0 shadow-sm" style="--bs-card-border-color: var(--bs-{{ $color }}-subtle);">
     <div class="card-body">

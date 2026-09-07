@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Horario: {{ $profesor->nombre_completo }} - {{ $ciclo->label }}')
+@section('title', 'Horario: ' . $profesor->nombre_completo . ' - ' . $ciclo->label)
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -17,13 +17,13 @@
 
 {{-- KPIs --}}
 <div class="kpi-grid mb-4">
-    <x-stat-card :icon="'bi-calendar-week'" :label="'Total clases'" :value="{{ $stats['total_clases'] }}" :color="'purple'">
+    <x-stat-card :icon="'bi-calendar-week'" :label="'Total clases'" :value="$stats['total_clases']" :color="'purple'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-person-badge'" :label="'PTC (Hora Docente)'" :value="{{ $stats['ptc'] }}" :color="'purple'">
+    <x-stat-card :icon="'bi-person-badge'" :label="'PTC (Hora Docente)'" :value="$stats['ptc']" :color="'purple'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
-    <x-stat-card :icon="'bi-book'" :label="'PA (Carga Asignada)'" :value="{{ $stats['pa'] }}" :color="'blue'">
+    <x-stat-card :icon="'bi-book'" :label="'PA (Carga Asignada)'" :value="$stats['pa']" :color="'blue'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
 </div>
@@ -58,18 +58,18 @@
                             <tr>
                                 <td class="text-nowrap small text-muted">
                                     <div class="fw-semibold">Ses. {{ $sesion }}</div>
-                                    @if (isset($grid["{$sesion}-1"]))
-                                        <div>{{ $grid["{$sesion}-1"][0]['inicio'] ?? '' }} - {{ $grid["{$sesion}-1"][0]['fin'] ?? '' }}</div>
+                                    @if (isset($grid["1-{$sesion}"]))
+                                        <div>{{ $grid["1-{$sesion}"]['inicio'] ?? '' }} - {{ $grid["1-{$sesion}"]['fin'] ?? '' }}</div>
                                     @endif
                                 </td>
                                 @foreach ($dias as $dia)
                                     <td class="align-middle">
-                                        @if (isset($grid["{$dia}-{$sesion}"]))
-                                            @foreach ($grid["{$dia}-{$sesion}"] as $clase)
+                                        @if (isset($grid["{$dia}-{$sesion}"]) && !empty($grid["{$dia}-{$sesion}"]['clases']))
+                                            @foreach ($grid["{$dia}-{$sesion}"]['clases'] as $clase)
                                                 <div class="mb-2 p-2 rounded bg-light border">
                                                     <div class="fw-semibold small">{{ $clase['materia'] }}</div>
                                                     <div class="small text-muted">{{ $clase['grupo'] }} · {{ $clase['aula'] }}</div>
-                                                    <span class="badge {{ $clase['tipo'] === 'PTC' ? 'bg-purple' : 'bg-info' }}">{{ $clase['tipo'] }}</span>
+                                                    <span class="badge {{ ($clase['tipo'] ?? '') === 'PTC' ? 'bg-purple' : 'bg-info' }}">{{ $clase['tipo'] ?? '' }}</span>
                                                 </div>
                                             @endforeach
                                         @else

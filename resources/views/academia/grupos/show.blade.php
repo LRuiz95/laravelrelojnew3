@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', '{{ $grupo->codigo_grupo }} - {{ $ciclo->label }}')
+@section('title', $grupo->codigo_grupo . ' - ' . $ciclo->label)
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">

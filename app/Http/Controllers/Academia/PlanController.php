@@ -10,6 +10,7 @@ use App\Models\Academia\Materia;
 use App\Models\Academia\MetodoEval;
 use App\Models\Academia\Nivel;
 use App\Models\Academia\Contrato;
+use App\Http\Requests\PlanFormRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -65,13 +66,7 @@ class PlanController extends Controller
 
     public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $request->validate([
-            'id_plan' => 'required|integer|unique:planes,id_plan',
-            'nombre_plan' => 'required|string|max:100',
-            'nivel' => 'required|string|max:10|exists:niveles,nivel',
-            'modalidad' => 'nullable|string|max:20',
-            'duracion_semestres' => 'nullable|integer|min:1|max:12',
-        ]);
+        $request->validate((new PlanFormRequest)->rules(), (new PlanFormRequest)->messages());
 
         Plan::create($request->only([
             'id_plan', 'nombre_plan', 'nivel', 'modalidad', 'duracion_semestres'
@@ -92,13 +87,7 @@ class PlanController extends Controller
 
     public function update(Request $request, Plan $plan): \Illuminate\Http\RedirectResponse
     {
-        $request->validate([
-            'nombre_plan' => 'required|string|max:100',
-            'nivel' => 'required|string|max:10|exists:niveles,nivel',
-            'modalidad' => 'nullable|string|max:20',
-            'duracion_semestres' => 'nullable|integer|min:1|max:12',
-            'activo' => 'boolean',
-        ]);
+        $request->validate((new PlanFormRequest)->rules(), (new PlanFormRequest)->messages());
 
         $plan->update($request->only([
             'nombre_plan', 'nivel', 'modalidad', 'duracion_semestres', 'activo'

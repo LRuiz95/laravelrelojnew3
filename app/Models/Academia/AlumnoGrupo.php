@@ -39,8 +39,10 @@ class AlumnoGrupo extends Pivot
 
     public function grupo()
     {
-        return $this->belongsTo(Grupo::class, ['codigo_grupo', 'inicial', 'final', 'periodo'], 
-            ['codigo_grupo', 'inicial', 'final', 'periodo']);
+        return $this->belongsTo(Grupo::class, 'codigo_grupo')
+            ->whereColumn('grupos.inicial', 'alumnos_grupos.inicial')
+            ->whereColumn('grupos.final', 'alumnos_grupos.final')
+            ->whereColumn('grupos.periodo', 'alumnos_grupos.periodo');
     }
 
     protected function estatusLabel(): Attribute

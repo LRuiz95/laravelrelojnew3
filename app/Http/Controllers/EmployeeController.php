@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\ZktecoConnectionException;
+use App\Jobs\DeprovisionEmployeeJob;
 use App\Jobs\SyncEmployeeToDeviceJob;
 use App\Models\Device;
 use App\Models\DeviceSync;
 use App\Models\Employee;
 use App\Models\Fingerprint;
 use App\Services\ZktecoService;
+use App\Http\Requests\EmployeeFormRequest;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
@@ -43,6 +46,64 @@ class EmployeeController extends Controller
         return view('employees.index', [
             'employees' => $employees,
             'devices' => Device::orderBy('name')->get(),
+        ]);
+    }
+
+    public function search(Request $request): JsonResponse
+    {
+        $query = Employee::query()
+            ->with('devices')
+            ->orderByRaw('LOWER(name)')
+            ->orderBy('id');
+
+        if ($deviceId = $request->query('device_id')) {
+            $query->whereHas('devices', fn ($q) => $q->where('devices.id', $deviceId));
+        }
+
+        if ($search = trim((string) $request->query('q', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('user_id', $search)
+                    ->orWhere('user_id', 'like', "%{$search}%");
+            });
+        }
+
+        $employees = $query->paginate(25);
+
+        $data = $employees->getCollection()->map(function ($employee) {
+            return [
+                'id' => $employee->id,
+                'user_id' => $employee->user_id,
+                'name' => $employee->name,
+                'devices' => $employee->devices->map(function ($device) {
+                    return [
+                        'id' => $device->id,
+                        'name' => $device->name,
+                        'pivot' => [
+                            'device_uid' => $device->pivot->device_uid,
+                            'role' => $device->pivot->role,
+                            'card_number' => $device->pivot->card_number,
+                            'active' => $device->pivot->active,
+                            'fingerprint_count' => $device->pivot->fingerprint_count,
+                        ],
+                    ];
+                })->values(),
+                'edit_url' => route('employees.edit', $employee),
+                'upload_url' => route('employees.upload-fingerprints', $employee),
+                'destroy_url' => route('employees.destroy', $employee),
+            ];
+        })->values();
+
+        return response()->json([
+            'employees' => $data,
+            'pagination' => [
+                'current_page' => $employees->currentPage(),
+                'last_page' => $employees->lastPage(),
+                'per_page' => $employees->perPage(),
+                'total' => $employees->total(),
+                'from' => $employees->firstItem(),
+                'to' => $employees->lastItem(),
+            ],
         ]);
     }
 
@@ -123,39 +184,21 @@ class EmployeeController extends Controller
      */
     public function update(Request $request, Employee $employee): RedirectResponse
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:24'],
-            'password' => ['nullable', 'digits_between:1,8'],
-            'role' => ['required', 'in:0,13,14'],
-        ]);
+        $data = (new EmployeeFormRequest)->validate();
 
-        $enrollments = $employee->devices()->get();
-        $ok = true;
-
-        foreach ($enrollments as $device) {
-            $service = new ZktecoService($device);
-
-            $ok = $service->setUser([
-                'uid' => $device->pivot->device_uid,
-                'user_id' => $employee->user_id,
-                'name' => $data['name'],
-                'password' => $data['password'] ?: ((string) $device->pivot->password ?: '1234'),
-                'role' => (int) $data['role'],
-                'card_number' => $device->pivot->card_number,
-            ]) && $ok;
-        }
-
+        // Solo actualizar el catálogo central (nombre)
+        // La sincronización de credenciales (password, role, card_number) a los checadores
+        // se hace de forma asíncrona vía el botón "Sincronizar credenciales" (syncToDevices)
         if ($employee->name !== $data['name']) {
             $employee->update(['name' => $data['name']]);
         }
 
-        $message = match (true) {
-            ! $ok => 'No se pudo actualizar el empleado en todos los checadores.',
-            $enrollments->isEmpty() => 'Empleado actualizado en el catálogo (sin enrolamientos activos).',
-            default => 'Empleado actualizado en el catálogo y en '.$enrollments->count().' checador(es).',
-        };
+        $enrollmentsCount = $employee->devices()->count();
+        $message = $enrollmentsCount > 0
+            ? "Empleado actualizado en el catálogo. Usa 'Sincronizar credenciales' para propagar password/rol/tarjeta a los {$enrollmentsCount} checador(es)."
+            : 'Empleado actualizado en el catálogo (sin enrolamientos activos).';
 
-        return Redirect::route('employees.index')->with($ok ? 'success' : 'error', $message);
+        return Redirect::route('employees.index')->with('success', $message);
     }
 
     public function uploadFingerprints(Employee $employee): RedirectResponse
@@ -364,7 +407,7 @@ class EmployeeController extends Controller
             'uid' => $device->pivot->device_uid,
             'user_id' => $employee->user_id,
             'name' => $employee->name,
-            'password' => (string) ($device->pivot->password ?: '1234'),
+            'password' => (string) ($device->pivot->password),
             'role' => (int) $device->pivot->role,
             'card_number' => $cardNumber,
         ]);
@@ -454,16 +497,9 @@ class EmployeeController extends Controller
         );
     }
 
-    public function store(Request $request): RedirectResponse
+public function store(Request $request): RedirectResponse
     {
-        $data = $request->validate([
-            'device_id' => ['required', 'exists:devices,id'],
-            'name' => ['required', 'string', 'max:24'],
-            'user_id' => ['required', 'digits_between:1,9'],
-            'password' => ['nullable', 'digits_between:1,8'],
-            'card_number' => ['nullable', 'string', 'max:10', 'regex:/^[0-9]+$/'],
-            'role' => ['required', 'in:0,13,14'],
-        ]);
+        $data = (new EmployeeFormRequest)->validate();
 
         $device = Device::findOrFail($data['device_id']);
         $service = new ZktecoService($device);
@@ -473,7 +509,7 @@ class EmployeeController extends Controller
         $ok = $service->setUser([
             'user_id' => $data['user_id'],
             'name' => $data['name'],
-            'password' => $data['password'] ?: '1234',
+            'password' => $data['password'] ?: $device->password,
             'role' => (int) $data['role'],
             'card_number' => $data['card_number'] ?: null,
         ]);
@@ -484,27 +520,48 @@ class EmployeeController extends Controller
 
     /**
      * Da de baja a la persona en TODOS los checadores donde está enrolada.
-     * removeUser() desacopla la pivote por equipo y elimina el registro del
-     * catálogo solo cuando queda sin ningún enrolamiento.
+     * Marca el empleado como 'Baja' (status_actual=B) y dispara jobs asíncronos
+     * para desprovisionar de cada checador. El catálogo se elimina solo cuando
+     * todos los jobs completan exitosamente (o manualmente si hay fallos).
      */
     public function destroy(Employee $employee): RedirectResponse
     {
+        // Marcar como baja lógica inmediatamente
+        $employee->update(['status_actual' => 'B']);
+
         $enrollments = $employee->devices()->get();
+        $created = 0;
 
         foreach ($enrollments as $device) {
-            (new ZktecoService($device))->removeUser((int) $device->pivot->device_uid);
+            // Evitar duplicar si ya hay un job en cola para este dispositivo
+            $alreadyQueued = DeviceSync::query()
+                ->where('employee_id', $employee->id)
+                ->where('device_id', $device->id)
+                ->where('operation', 'deprovision')
+                ->whereIn('status', ['queued', 'running'])
+                ->exists();
+
+            if ($alreadyQueued) {
+                continue;
+            }
+
+            $sync = DeviceSync::create([
+                'device_id' => $device->id,
+                'employee_id' => $employee->id,
+                'status' => 'queued',
+                'operation' => 'deprovision',
+                'stage' => 'Pendiente',
+                'total' => 1,
+            ]);
+
+            DeprovisionEmployeeJob::dispatch($employee, $device, $sync);
+            $created++;
         }
 
-        // Si algún checador no respondió puede quedar un enrolamiento vivo;
-        // el catálogo se conserva para no perder la trazabilidad del PIN.
-        // La consulta es fresca: la instancia en memoria puede estar obsoleta
-        // si removeUser ya eliminó al empleado del catálogo.
-        if (! $employee->devices()->exists()) {
-            return Redirect::to('/employees')
-                ->with('success', 'Empleado dado de baja de todos los equipos.');
-        }
+        $message = $created > 0
+            ? "Empleado marcado como Baja. {$created} job(s) de desprovisionamiento encolados."
+            : 'Empleado marcado como Baja (sin enrolamientos activos).';
 
-        return Redirect::to('/employees')
-            ->with('error', 'Algunos checadores no respondieron; el empleado conserva enrolamientos activos.');
+        return Redirect::route('employees.index')->with('success', $message);
     }
 }

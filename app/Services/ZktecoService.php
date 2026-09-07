@@ -69,7 +69,7 @@ class ZktecoService
             $this->device->ip,
             (int) $this->device->port,
             true,
-            $timeoutOverride ?? self::SOCKET_TIMEOUT,
+            $timeout ?? self::SOCKET_TIMEOUT,
             (string) ($this->device->password ?? '')
         );
 
@@ -421,15 +421,21 @@ class ZktecoService
             $employeeId = $employeeIds[$userKey] ?? null;
             $type = (int) ($record['type'] ?? 0);
 
+            // Identity que coincide con el nuevo índice único:
+            // attendance_device_employee_unique (device_id, employee_id, recorded_at)
+            // Sin attendance_type: un mismo empleado no puede tener dos registros
+            // en el mismo segundo en el mismo dispositivo.
             $identity = [
                 'device_id' => $this->device->id,
-                'user_id' => $userKey,
-                'state' => (int) $record['state'],
+                'employee_id' => $employeeId,
                 'recorded_at' => $record['record_time'],
             ];
             $inserted = DB::table('attendances')->insertOrIgnore(array_merge($identity, [
-                'employee_id' => $employeeId,
+                'user_id' => $userKey,
                 'type' => $type,
+                'state' => (int) $record['state'],
+                'source' => 'zkteco',
+                'attendance_type' => 'biometric',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]));
@@ -820,7 +826,7 @@ class ZktecoService
             'uid' => null,
             'user_id' => null,
             'name' => null,
-            'password' => $devicePassword ?: '1234',
+            'password' => $devicePassword,
             'role' => 0,
             'card_number' => null,
         ], $data);
@@ -873,7 +879,7 @@ class ZktecoService
             'uid' => $enrollment?->pivot->device_uid,
             'user_id' => $employee->user_id,
             'name' => $employee->name,
-            'password' => $password ?: '1234',
+            'password' => $password,
             'role' => $role,
             'card_number' => $cardNumber,
         ])) {

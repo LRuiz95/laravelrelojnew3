@@ -284,10 +284,28 @@
      });
  }
 
+ // Force SVG charts to repaint on theme change (CSS variables update)
+ function forceChartsRepaint() {
+     const trendChart = document.querySelector('.trend-chart');
+     const donutChart = document.querySelector('.donut-wrap svg');
+     
+     [trendChart, donutChart].forEach(chart => {
+         if (!chart) return;
+         // Force reflow by temporarily removing and re-adding
+         const parent = chart.parentNode;
+         const nextSibling = chart.nextSibling;
+         parent.removeChild(chart);
+         parent.insertBefore(chart, nextSibling);
+     });
+ }
+
  // Start polling every 30 seconds when page loads
  document.addEventListener('DOMContentLoaded', () => {
      fetchDashboardKPIs();
      setInterval(fetchDashboardKPIs, 30000);
+     
+     // Listen for theme changes and force SVG repaint
+     document.addEventListener('themechange', forceChartsRepaint);
  });
 </script>
 @endpush

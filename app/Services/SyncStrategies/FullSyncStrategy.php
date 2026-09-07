@@ -18,6 +18,8 @@ class FullSyncStrategy implements SyncStrategyInterface
         FirebirdSync $sync,
         ?string $ciclo,
         bool $deleteOrphans,
+        array $tables = [],
+        bool $skipExisting = true,
         callable $progressCallback
     ): array {
         $log = [];
@@ -33,7 +35,7 @@ class FullSyncStrategy implements SyncStrategyInterface
         if ($ciclo) {
             // Ejecutar sync_ciclo primero
             $cycleSync = new CycleDirectSync();
-            $result = $cycleSync->execute($firebirdReader, $sync, $ciclo, $deleteOrphans, $progressCallback);
+            $result = $cycleSync->execute($firebirdReader, $sync, $ciclo, $deleteOrphans, [], $skipExisting, $progressCallback);
             $log = array_merge($log, $result['log']);
             $errors = array_merge($errors, $result['errors']);
             $totals['created'] += $result['created'];
@@ -46,7 +48,7 @@ class FullSyncStrategy implements SyncStrategyInterface
 
         // Luego sync_catalogos
         $catalogSync = new CatalogSmartSync();
-        $result = $catalogSync->execute($firebirdReader, $sync, null, $deleteOrphans, $progressCallback);
+        $result = $catalogSync->execute($firebirdReader, $sync, null, $deleteOrphans, [], $skipExisting, $progressCallback);
         $log = array_merge($log, $result['log']);
         $errors = array_merge($errors, $result['errors']);
         $totals['created'] += $result['created'];

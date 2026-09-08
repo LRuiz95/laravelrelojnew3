@@ -10,7 +10,7 @@
                     </div>
                     <h6 class="mb-0 text-muted fw-semibold">{{ $label }}</h6>
                 </div>
-                <div class="kpi-value fs-2 fw-bold text-{{ $color }}">{{ $value }}</div>
+                <div class="kpi-value fs-2 fw-bold text-{{ $color }}" data-stat-value>{{ $value }}</div>
             </div>
             {{ $slot ?? '' }}
         </div>

@@ -1,9 +1,12 @@
 ---
-description: plan a task with repository discovery, Git safety and dependency impact analysis
-agent: team-lead
-model: opencode/big-pickle
+description: Genera el plan de cambio completo para una tarea compleja
+agent: architect
 ---
 
-Plan and decompose this task without implementing it: $ARGUMENTS
+Genera el plan de cambio para: $ARGUMENTS
 
-Inspect real project instructions and Git state. Explore affected files and consumers. Run `change-impact` where existing/shared behavior is involved. Identify rollback strategy, invariants, validation commands, risks, and 2–3 execution options; recommend one.
+Usa el formato de `.opencode/agents/architect.md` (problema, causa raíz,
+módulos afectados, archivos y quién los toca sin solapamiento,
+dependencias entre pasos, riesgos, rollback) y guárdalo en
+`.opencode/state/plan.md`. Sigue con `/task` para producir el Task
+Boundary correspondiente antes de que cualquier especialista implemente.

@@ -32,7 +32,9 @@ class SyncDeviceJob implements ShouldQueue
         public string $operation = 'all',
         public ?int $employeeId = null,
         public int $batchSize = 25,
-    ) {}
+    ) {
+        $this->queue = 'device-sync';
+    }
 
     public function backoff(): array
     {

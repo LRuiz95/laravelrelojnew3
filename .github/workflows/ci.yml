@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, mbstring, xml, ctype, json, bcmath
+          coverage: none
+
+      - name: Start MySQL service
+        run: sudo service mysql start
+
+      - name: Create testing database
+        run: mysql -u root -e "CREATE DATABASE IF NOT EXISTS \`rh_reloj_testing\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.testing .env
+          php artisan key:generate --force
+
+      - name: Run migrations
+        run: php artisan migrate --env=testing
+
+      - name: Run tests
+        run: php artisan test

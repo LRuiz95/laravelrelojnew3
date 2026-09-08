@@ -14,7 +14,9 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\DeviceSyncController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\FingerprintController;
 use App\Http\Controllers\FirebirdController;
 use App\Http\Controllers\OperationsController;
 use Illuminate\Support\Facades\Route;
@@ -121,18 +123,18 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{device}', [DeviceController::class, 'destroy'])->middleware('admin')->name('destroy');
 
         Route::post('/{device}/check-status', [DeviceController::class, 'checkStatus'])->name('check-status');
-        Route::middleware(['admin', 'throttle:10,1'])->group(function () {
+        Route::middleware(['admin', 'throttle:30,1'])->group(function () {
             Route::post('/deduplicate', [DeviceController::class, 'deduplicate'])->name('deduplicate');
-            Route::post('/{device}/sync-users', [DeviceController::class, 'syncUsers'])->name('sync-users');
-            Route::post('/{device}/sync-fingerprints', [DeviceController::class, 'syncFingerprints'])->name('sync-fingerprints');
-            Route::post('/{device}/sync-attendances', [DeviceController::class, 'syncAttendances'])->name('sync-attendances');
-            Route::post('/{device}/sync-all', [DeviceController::class, 'syncAll'])->name('sync-all');
-            Route::post('/{device}/employees/{employee}/upload-fingerprints', [EmployeeController::class, 'uploadFingerprintsOnDevice'])->name('employees.upload-fingerprints');
-            Route::delete('/{device}/employees/{employee}', [EmployeeController::class, 'removeFromDevice'])->name('employees.remove');
-            Route::post('/{device}/set-time', [DeviceController::class, 'setTime'])->name('set-time');
+            Route::post('/{device}/sync-users', [DeviceSyncController::class, 'syncUsers'])->name('sync-users');
+            Route::post('/{device}/sync-fingerprints', [DeviceSyncController::class, 'syncFingerprints'])->name('sync-fingerprints');
+            Route::post('/{device}/sync-attendances', [DeviceSyncController::class, 'syncAttendances'])->name('sync-attendances');
+            Route::post('/{device}/sync-all', [DeviceSyncController::class, 'syncAll'])->name('sync-all');
+            Route::post('/{device}/employees/{employee}/upload-fingerprints', [FingerprintController::class, 'uploadFingerprintsOnDevice'])->name('employees.upload-fingerprints');
+            Route::delete('/{device}/employees/{employee}', [FingerprintController::class, 'removeFromDevice'])->name('employees.remove');
+            Route::post('/{device}/set-time', [DeviceSyncController::class, 'setTime'])->name('set-time');
             Route::post('/{device}/sync-now', [DeviceController::class, 'syncNow'])->name('sync-now');
-            Route::post('/{device}/clear-attendance', [DeviceController::class, 'clearAttendance'])->name('clear-attendance');
-            Route::post('/{device}/restore', [DeviceController::class, 'restore'])->name('restore');
+            Route::post('/{device}/clear-attendance', [DeviceSyncController::class, 'clearAttendance'])->name('clear-attendance');
+            Route::post('/{device}/restore', [DeviceSyncController::class, 'restore'])->name('restore');
         });
     });
 
@@ -141,21 +143,17 @@ Route::middleware('auth')->group(function () {
         Route::get('/search', [EmployeeController::class, 'search'])->name('search');
         Route::get('/create', [EmployeeController::class, 'create'])->middleware('admin')->name('create');
         Route::get('/{employee}/edit', [EmployeeController::class, 'edit'])->middleware('admin')->name('edit');
-        Route::middleware('admin')->group(function () {
-            Route::post('/', [EmployeeController::class, 'store'])->name('store');
-            Route::put('/{employee}', [EmployeeController::class, 'update'])->name('update');
-            Route::post('/{employee}/upload-fingerprints', [EmployeeController::class, 'uploadFingerprints'])->name('upload-fingerprints');
-            Route::post('/{employee}/assign-fingerprint', [EmployeeController::class, 'assignFingerprint'])->name('assign-fingerprint');
-            Route::post('/{employee}/fingerprints/{fingerprint}/copy', [EmployeeController::class, 'copyFingerprint'])->name('copy-fingerprint');
-            Route::delete('/{employee}/fingerprints/{fingerprint}', [EmployeeController::class, 'deleteFingerprint'])->name('delete-fingerprint');
-            Route::post('/{employee}/card', [EmployeeController::class, 'updateCard'])->name('update-card');
-            Route::post('/{employee}/enroll-device', [EmployeeController::class, 'enrollOnDevice'])->name('enroll-device');
-            Route::post('/{employee}/sync-devices', [EmployeeController::class, 'syncToDevices'])->name('sync-devices');
+Route::middleware('admin')->group(function () {
+            Route::post('/', [EmployeeController::class, 'store'])->name('store')->middleware('throttle:30,1');
+            Route::put('/{employee}', [EmployeeController::class, 'update'])->name('update')->middleware('throttle:30,1');
+            Route::post('/{employee}/card', [EmployeeController::class, 'updateCard'])->name('update-card')->middleware('throttle:30,1');
+            Route::post('/{employee}/enroll-device', [EmployeeController::class, 'enrollOnDevice'])->name('enroll-device')->middleware('throttle:30,1');
+            Route::post('/{employee}/sync-devices', [EmployeeController::class, 'syncToDevices'])->name('sync-devices')->middleware('throttle:30,1');
             Route::delete('/{employee}', [EmployeeController::class, 'destroy'])->name('destroy');
         });
     });
 
-    Route::get('/fingerprints', [EmployeeController::class, 'fingerprints'])->name('fingerprints.index');
+    Route::get('/fingerprints', [FingerprintController::class, 'index'])->name('fingerprints.index');
 
     Route::get('/attendances', [AttendanceController::class, 'index'])->name('attendances.index');
     Route::get('/attendances/export', [AttendanceController::class, 'export'])->name('attendances.export');

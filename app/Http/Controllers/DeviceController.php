@@ -69,9 +69,9 @@ class DeviceController extends Controller
             'serial_number' => ['nullable', 'string', 'max:50', 'unique:devices,serial_number'],
         ]);
 
-        // Create device with pending status - connection will be verified async
+        // Create device with unknown status - connection will be verified async
         $device = Device::create(array_merge($data, [
-            'status' => 'pending',
+            'status' => 'unknown',
         ]));
 
         // Dispatch async job to verify connection and fetch device info
@@ -359,126 +359,6 @@ class DeviceController extends Controller
             ->with('success', "{$device->name}: ".Device::states()[$status]);
     }
 
-    public function syncUsers(Request $request, Device $device): JsonResponse|RedirectResponse
-    {
-        $this->queueSync($device, 'users');
-
-        if (! $request->expectsJson()) {
-            return Redirect::back()->with('success', 'Sincronización de usuarios enviada a la cola.');
-        }
-
-        return response()->json([
-            'status' => 'queued',
-            'message' => 'Sincronización de usuarios enviada a la cola.',
-        ]);
-    }
-
-    public function syncAttendances(Request $request, Device $device): JsonResponse|RedirectResponse
-    {
-        $this->queueSync($device, 'attendances');
-
-        if (! $request->expectsJson()) {
-            return Redirect::back()->with('success', 'Sincronización de asistencias enviada a la cola.');
-        }
-
-        return response()->json([
-            'status' => 'queued',
-            'message' => 'Sincronización de asistencias enviada a la cola.',
-        ]);
-    }
-
-    public function syncFingerprints(Request $request, Device $device): JsonResponse|RedirectResponse
-    {
-        $data = request()->validate([
-            'employee_id' => ['nullable', 'integer', 'exists:employees,id'],
-            'batch' => ['nullable', 'integer', 'between:1,100'],
-        ]);
-        $employeeId = isset($data['employee_id']) ? (int) $data['employee_id'] : null;
-        if ($employeeId && ! $device->employees()->whereKey((int) $employeeId)->exists()) {
-            abort(422, 'El empleado no está enrolado en este checador.');
-        }
-        $this->queueSync($device, 'fingerprints', $employeeId ?: null, (int) ($data['batch'] ?? 25));
-
-        if (! $request->expectsJson()) {
-            return Redirect::back()->with('success', 'Extracción de huellas enviada a la cola.');
-        }
-
-        return response()->json([
-            'status' => 'queued',
-            'message' => 'Extracción de huellas enviada a la cola.',
-        ]);
-    }
-
-    public function syncAll(Request $request, Device $device): JsonResponse|RedirectResponse
-    {
-        $this->queueSync($device, 'all');
-
-        if (! $request->expectsJson()) {
-            return Redirect::back()->with('success', 'Sincronización enviada a la cola.');
-        }
-
-        return response()->json([
-            'status' => 'queued',
-            'message' => 'Sincronización enviada a la cola. Puedes continuar trabajando mientras se procesa.',
-        ]);
-    }
-
-    protected function queueSync(Device $device, string $operation, ?int $employeeId = null, int $batchSize = 25): DeviceSync
-    {
-        $activeSync = $device->syncs()
-            ->whereIn('status', ['queued', 'running'])
-            ->latest('id')
-            ->first();
-
-        if ($activeSync) {
-            return $activeSync;
-        }
-
-        // Calculate total based on what the sync job will actually process.
-        // We use the device's employee count as a baseline, but the Job's run() method
-        // will recalculate 'processed' based on actual created/updated records,
-        // avoiding the mismatch between DeviceSync.total and actual sync progress.
-        // This prevents the "7778 de 288" mismatch error.
-        $total = match ($operation) {
-            'fingerprints' => $employeeId ? 1 : max(1, (int) $device->employees()->count()),
-            'all' => max(1, (int) $device->employees()->count() + $device->attendances()->count()),
-            'users' => max(1, (int) $device->employees()->count()),
-            'attendances' => max(1, (int) $device->attendances()->count()),
-            default => 0,
-        };
-
-        // Use a more robust total calculation: the greater of BD count or 1.
-        // The real total will be validated in the Job's run() method where
-        // 'processed' is calculated from actual created/updated counts,
-        // not from the Service's internal totals.
-        if ($total < 1) {
-            $total = 1;
-        }
-
-        $sync = DeviceSync::create([
-            'device_id' => $device->id,
-            'status' => 'queued',
-            'operation' => $operation,
-            'stage' => $operation === 'all' ? 'Preparando' : $operation,
-            'employee_id' => $employeeId,
-            'total' => $total,
-        ]);
-        SyncDeviceJob::dispatch($device, $sync, $operation, $employeeId, $batchSize);
-
-        return $sync;
-    }
-
-    public function setTime(Request $request, Device $device): RedirectResponse
-    {
-        $data = $request->validate(['datetime' => ['required', 'date']]);
-
-        $service = new ZktecoService($device);
-        $ok = $service->setTime(date('Y-m-d H:i:s', strtotime($data['datetime'])));
-
-        return Redirect::route('devices.show', $device)
-            ->with($ok ? 'success' : 'error', $ok ? 'Hora sincronizada.' : 'No se pudo actualizar la hora del dispositivo.');
-    }
-
     public function syncNow(Device $device): JsonResponse|RedirectResponse
     {
         $service = new ZktecoService($device);
@@ -506,21 +386,4 @@ class DeviceController extends Controller
             ->with('error', 'No se pudo sincronizar la hora del equipo.');
     }
 
-    public function clearAttendance(Device $device): RedirectResponse
-    {
-        $service = new ZktecoService($device);
-        $ok = $service->clearAttendance();
-
-        return Redirect::route('devices.show', $device)
-            ->with($ok ? 'success' : 'error', $ok ? 'Bitácora de asistencias del equipo limpiada.' : 'No se pudo limpiar la bitácora.');
     }
-
-    public function restore(Device $device): RedirectResponse
-    {
-        $service = new ZktecoService($device);
-        $ok = $service->restoreDevice();
-
-        return Redirect::route('devices.show', $device)
-            ->with($ok ? 'success' : 'error', $ok ? 'Dispositivo habilitado.' : 'No se pudo habilitar el dispositivo.');
-    }
-}

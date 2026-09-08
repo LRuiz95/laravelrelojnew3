@@ -57,7 +57,7 @@ class VerifyDeviceConnectionJob implements ShouldQueue
         ]);
 
         $this->device->update([
-            'status' => 'checking',
+            'status' => 'unknown',
         ]);
 
         $service = new ZktecoService($this->device);
@@ -105,7 +105,7 @@ class VerifyDeviceConnectionJob implements ShouldQueue
 
     protected function handleFailure(Throwable $exception): void
     {
-        if ($this->device->fresh()?->status === 'checking') {
+        if ($this->device->fresh()?->status === 'unknown') {
             $this->device->update([
                 'status' => 'offline',
                 'device_name' => null,

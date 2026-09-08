@@ -30,7 +30,7 @@
         <env name="DB_PORT" value="3306"/>
         <env name="DB_DATABASE" value="rh_reloj_testing"/>
         <env name="DB_USERNAME" value="root"/>
-        <env name="DB_PASSWORD" value=""/>
+        <!-- DB_PASSWORD se toma del .env; no lo sobrescribimos aquí para respetar la config activa -->
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

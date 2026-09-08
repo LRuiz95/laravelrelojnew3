@@ -1,29 +1,52 @@
-# CHANGELOG
+# CHANGELOG — Paquete de agentes OpenCode
 
-## Updated reusable team — 2026-09-01
+> Historial de esta configuración de agentes (`.opencode/`), no del
+> proyecto Laravel donde se instala. Lo mantiene quien administra el
+> paquete de agentes, no el agente `docs` (que documenta el proyecto en
+> sí).
 
-- Repaired `testing-strategy` skill.
-- Removed stack-specific version commands from `team-lead`.
-- Added `api`, `design`, and `libraries` agents.
-- Added `architecture-patterns`, `programming-paradigms`, `design-system`, `api-design`, `dependency-hygiene`, `structural-symmetry`, and `polyglot-boundaries` skills.
-- Converted polyglot role from agent to skill.
-- Added explicit skill permissions to agents.
-- Clarified project-local regeneration of `LOCKS.md` and `DECISIONS.md`.
-- Integrated new roles into team workflow and model routing.
-- Kept `learn` outside the default execution flow.
+## v2.1
 
-## Hardening pass — 2026-09-01
+### Agregado
 
-- Removed stack-specific command permissions from `implementer`.
-- Added explicit shared-skill loading guidance to specialist agents.
-- Strengthened reviewer checks for structural symmetry.
-- Clarified neutral project discovery and model-availability language.
-- Documented current package inventory and project-local coordination state.
-- Routed `/sync` explicitly through integration with database/security/QA gates as applicable.
+- Agente `cleanup` (`.opencode/agents/cleanup.md`): único autorizado a
+  eliminar archivos temporales generados por otros agentes y a
+  archivar/resetear `.opencode/state/` al cerrar una tarea.
+- Comando `/cleanup`.
+- State file `state/generated-files.md`: registro obligatorio de
+  archivos temporales creados por cualquier agente, con doble
+  confirmación (declarado + evidencia) antes de eliminarse.
+- State file `state/cleanup-results.md` y carpeta `state/archive/` para
+  el historial de tareas cerradas.
+- Checklist explícito con checkboxes en **todos** los agentes
+  (`architect`, `laravel`, `frontend`, `mysql`, `firebird`,
+  `integration`, `data-integrity`, `docs`, `tester`, `team-lead`,
+  `cleanup`). Antes solo `security` y `reviewer` lo tenían.
+- Campo `Generated (temporal):` en el formato obligatorio de evidencia
+  (`.opencode/policies/evidence.md`).
+- Sección `AGENTS.md §12.1` sobre limpieza de artefactos generados.
+- Ítem de Definition of Done sobre ejecución de `cleanup` tras `DONE`.
+- Stop condition sobre archivos ambiguos entre temporal y producción
+  detectados por `cleanup`.
 
-## 2.3 — Design specialist strengthening
+### Cambiado
 
-- Strengthened `.opencode/agents/design.md` into a professional UX/UI lead role.
-- Added `.opencode/skills/ux-professional-design/SKILL.md` with discovery, information architecture, visual hierarchy, interaction states, responsive design, accessibility, UX heuristics, critique and implementation handoff.
-- Made design validation evidence-driven and pattern-first, with explicit symmetry/asymmetry rules.
-- Clarified that `frontend` implements the visual system defined by `design` and reports deviations.
+- `team-lead` ahora invoca `cleanup` automáticamente tras cada `DONE`
+  (nunca si el resultado quedó pendiente de revisión humana).
+- El reporte final de `team-lead` al usuario incluye una línea `Cleanup:`.
+- `.opencode/policies/permissions.md` y `.opencode/policies/models.md`
+  actualizados con las reglas y el modelo asignado a `cleanup`.
+
+## v2.0
+
+- Sintaxis real de OpenCode V2 (`mode`, `model: provider/model`,
+  `permissions:` como reglas `{action, resource, effect}`).
+- Estado persistente en `.opencode/state/`.
+- Task Boundaries (`.opencode/policies/task-boundary.md`).
+- Severidad como control de flujo (`.opencode/policies/severity.md`).
+- Niveles de testing 0-4 (`.opencode/policies/test-levels.md`).
+- Consenso en doble pasada de `security`/`reviewer`
+  (`.opencode/policies/consensus.md`).
+- Formato de evidencia estructurada (`.opencode/policies/evidence.md`).
+- Stop conditions explícitas para `team-lead`
+  (`.opencode/policies/stop-conditions.md`).

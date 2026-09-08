@@ -1,103 +1,150 @@
-# Checador ZKTeco Admin
+# Paquete de agentes OpenCode v2.1 — Laravel/PHP + MySQL + Firebird 2.5 + ZKTeco
 
-Aplicación Laravel 10 para administrar dispositivos ZKTeco, empleados, huellas y asistencias.
+## Qué cambió respecto a la v2.0
 
-## Puesta en marcha
+- Nuevo agente **`cleanup`** — el único autorizado a eliminar archivos
+  temporales que otros agentes generan (scripts de diagnóstico, exports,
+  dumps, logs puntuales) y a archivar/resetear `.opencode/state/` al
+  cerrar una tarea. Ver `.opencode/agents/cleanup.md`.
+- Nuevo state file **`state/generated-files.md`** — registro obligatorio
+  de cualquier archivo temporal creado por un agente, con doble
+  confirmación (declarado + evidencia) antes de que `cleanup` lo borre.
+- Nuevo state file **`state/cleanup-results.md`** y carpeta
+  **`state/archive/`** para el historial de tareas cerradas.
+- **Checklist explícito con checkboxes en todos los agentes** (antes solo
+  `security` y `reviewer` los tenían) — cada rol tiene ahora su propia
+  lista verificable antes de reportar, además del checklist fijo de
+  seguridad y la Definition of Done del proyecto.
+- `team-lead` invoca `cleanup` automáticamente tras cada `DONE` (nunca si
+  el resultado quedó pendiente de revisión humana, para no borrar
+  evidencia que el humano necesita ver).
+- Nuevo comando **`/cleanup`** para invocarlo bajo demanda.
+- `evidence.md` ahora incluye el campo `Generated (temporal):` en el
+  formato obligatorio de todo agente.
+- `CHANGELOG.md` en la raíz del paquete para llevar el historial de esta
+  configuración de agentes (no del proyecto Laravel en sí, ese lo
+  mantiene `docs`).
 
-1. Configura `.env`, `APP_KEY`, la conexión MySQL y los valores `ZKTECO_DEFAULT_*`.
-2. Define una cuenta inicial antes de sembrar:
+## Qué cambió en la v2.0 respecto a la v1
 
-```env
-ADMIN_NAME=Administrador
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=una-clave-segura
+Esta versión corrige la sintaxis para que sea configuración real de
+OpenCode V2, no solo documentación conceptual:
+
+- `mode: primary | subagent | all` en vez de `type`.
+- `model: provider/model` (un string, no `model_primary`/`model_fallback`
+  — ese campo no existe nativamente).
+- `permissions:` como array de reglas `{action, resource, effect}` — la
+  delegación se controla con `action: subagent`, no con `can_invoke`.
+- El fallback de modelos ahora es una **política de team-lead**
+  (`.opencode/policies/models.md`), no un campo del agente.
+
+Y suma mecanismos que la v1 no tenía: estado persistente en
+`.opencode/state/`, Task Boundaries, severidad que controla el flujo,
+niveles de testing, consenso en la doble pasada, evidencia estructurada y
+stop conditions explícitas para `team-lead`.
+
+## Instalación
+
+Copia `.opencode/` y `AGENTS.md` a la raíz del proyecto Laravel.
+
+```
+tu-proyecto-laravel/
+├── AGENTS.md
+└── .opencode/
+    ├── agents/
+    ├── commands/
+    ├── policies/
+    └── state/
 ```
 
-3. Ejecuta las migraciones y el seeder:
+## Fases
 
-```bash
-php artisan migrate --seed
-```
+### Fase 1 — núcleo (8 agentes, activar primero)
 
-4. Inicia el worker de sincronización:
+`team-lead` · `architect` · `laravel` · `frontend` · `tester` ·
+`reviewer` · `security` · `cleanup`
 
-```bash
-php artisan queue:work --tries=3 --timeout=600
-```
+Con esto ya corre el flujo completo: clasificación → Task Boundary →
+implementación → testing por nivel → security con severidad → review con
+consenso → DONE → cleanup / HUMAN REVIEW.
 
-Las sincronizaciones se encolan y su estado se muestra en el detalle de cada dispositivo. Las plantillas biométricas, contraseñas de empleados y CMD Keys se cifran con `APP_KEY`; conserva esa clave y no la expongas.
+`docs` se instala desde el día 1 también, pero como agente **pasivo**: no
+se invoca automáticamente en cada tarea, solo cuando el cambio lo amerita
+(ver `.opencode/agents/docs.md`). `cleanup`, en cambio, sí se invoca
+automáticamente — pero solo tras un `DONE`, nunca sobre una tarea que
+quedó pendiente de revisión humana.
 
-## Pruebas
+### Fase 2 — integración del dominio (+4 agentes)
 
-```bash
-php artisan test
-```
+`mysql` · `firebird` · `integration` · `data-integrity`
 
-## Seguridad
+Actívalos cuando el núcleo esté validado. Son los más relevantes para
+este proyecto específico: la combinación Laravel + MySQL + Firebird +
+ZKTeco es exactamente el escenario donde "cada parte está bien pero
+juntas fallan" — por eso `integration` (¿se comunican bien?) y
+`data-integrity` (¿los datos resultantes son correctos?) importan más
+aquí que un agente de performance genérico.
 
-Usa `APP_DEBUG=false` en producción, restringe el panel a una red confiable y cambia la contraseña inicial del administrador.
+### Fase 3 — bajo demanda (no incluidos en este paquete)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+`performance` · `migration` · `incident` · `release` ·
+`context-manager` (automatiza los mapas que hoy resuelve `state/` +
+`architect` manualmente)
 
-## About Laravel
+No se construyen todavía. Primero hay que validar que Fase 1 + Fase 2
+funcionan bien en la práctica.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Piezas nuevas — cómo se usan
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **`.opencode/state/`** — memoria de trabajo entre agentes. Cada rol
+  escribe su resultado ahí (ver tabla en `AGENTS.md §6`) en vez de que
+  `team-lead` dependa de lo que "recuerda" de la conversación.
+- **Task Boundary** (`.opencode/policies/task-boundary.md`, comando
+  `/task`) — declara qué archivos puede tocar cada tarea antes de
+  implementar. Los permisos de cada agente en su frontmatter son la red
+  amplia; el Task Boundary es la red fina por tarea.
+- **Severidad** (`.opencode/policies/severity.md`) — LOW/MEDIUM/HIGH/
+  CRITICAL controla el flujo, no es solo una etiqueta del reporte.
+  CRITICAL siempre implica human approval.
+- **Niveles de testing** (`.opencode/policies/test-levels.md`) — de 0
+  (documentación) a 4 (suite completa). Evita correr mil tests por un
+  cambio de color de botón.
+- **Consenso** (`.opencode/policies/consensus.md`) — la doble pasada de
+  `security`/`reviewer` ya no es binaria; hay un nivel `CONSENSUS` para
+  discrepancias menores, pero cualquier CRITICAL en cualquiera de las dos
+  pasadas siempre detiene el flujo.
+- **Evidencia** (`.opencode/policies/evidence.md`) — formato obligatorio
+  de resultado para todo agente: status, evidencia concreta (comando +
+  output real), archivos cambiados, nivel de confianza, riesgos,
+  follow-up. Nada de "parece que funciona".
+- **Stop conditions** (`.opencode/policies/stop-conditions.md`) — lista
+  explícita de cuándo `team-lead` debe detenerse y escalar en vez de
+  intentar resolver todo.
+- **Checklists por agente** — cada archivo en `.opencode/agents/*.md`
+  tiene su propia lista de verificación con checkboxes, específica a su
+  dominio, que debe cumplirse antes de escribir su evidencia. No
+  reemplaza la Definition of Done del proyecto (`AGENTS.md §14`), la
+  complementa a nivel de cada rol individual.
+- **Limpieza de artefactos** (`.opencode/agents/cleanup.md`,
+  `.opencode/state/generated-files.md`) — cualquier archivo temporal que
+  un agente genere (scripts de diagnóstico, exports, dumps) se declara
+  explícitamente y solo `cleanup` puede borrarlo, con confirmación y tras
+  verificar que no es código de producción. `cleanup` también archiva el
+  estado de cada tarea cerrada en vez de perderlo al resetear.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Sobre el fallback de modelos — una aclaración importante
 
-## Learning Laravel
+`.opencode/policies/models.md` documenta dos niveles de fallback (fallo
+técnico y baja confianza), pero **ninguno de los dos es una capacidad
+nativa automática de OpenCode**. El Nivel A (cambiar de modelo si uno
+falla) requiere que `team-lead` señale el cambio de configuración — no
+ocurre solo. El Nivel B (baja confianza) depende de que cada agente
+reporte `Confidence: low` explícitamente en su evidencia — OpenCode no
+expone un puntaje de confianza real del modelo. Tenlo presente: es un
+protocolo que los agentes siguen por instrucción, no un mecanismo técnico
+verificable.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Comandos disponibles
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+`/audit` · `/task` · `/plan` · `/implement` · `/test` · `/security` ·
+`/review` · `/health` · `/cleanup`

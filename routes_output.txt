@@ -1,0 +1,118 @@
+Xdebug: [Log Files] File '/xampp/php/logs/xdebug.log' could not be opened.
+Xdebug: [Step Debug] Time-out connecting to debugging client, waited: 200 ms. Tried: 127.0.0.1:9003 (fallback through xdebug.client_host/xdebug.client_port).
+
+  GET|HEAD        / ............................................................ dashboard › DashboardController@index
+  POST            _ignition/execute-solution ignition.executeSolution › Spatie\LaravelIgnition › ExecuteSolutionContr…
+  GET|HEAD        _ignition/health-check ....... ignition.healthCheck › Spatie\LaravelIgnition › HealthCheckController
+  POST            _ignition/update-config .... ignition.updateConfig › Spatie\LaravelIgnition › UpdateConfigController
+  GET|HEAD        academia ................................... academia.dashboard › Academia\DashboardController@index
+  GET|HEAD        academia/alumnos .......................... academia.alumnos.index › Academia\AlumnoController@index
+  GET|HEAD        academia/alumnos/{alumno} ................... academia.alumnos.show › Academia\AlumnoController@show
+  GET|HEAD        academia/alumnos/{alumno}/historial academia.alumnos.historial › Academia\AlumnoController@historial
+  GET|HEAD        academia/alumnos/{alumno}/kardex ........ academia.alumnos.kardex › Academia\AlumnoController@kardex
+  GET|HEAD        academia/ciclos ............................. academia.ciclos.index › Academia\CicloController@index
+  POST            academia/ciclos ............................. academia.ciclos.store › Academia\CicloController@store
+  GET|HEAD        academia/ciclos/create .................... academia.ciclos.create › Academia\CicloController@create
+  GET|HEAD        academia/ciclos/{ciclo} ....................... academia.ciclos.show › Academia\CicloController@show
+  PUT|PATCH       academia/ciclos/{ciclo} ................... academia.ciclos.update › Academia\CicloController@update
+  DELETE          academia/ciclos/{ciclo} ................. academia.ciclos.destroy › Academia\CicloController@destroy
+  POST            academia/ciclos/{ciclo}/activo ......... academia.ciclos.activo › Academia\CicloController@setActivo
+  GET|HEAD        academia/ciclos/{ciclo}/edit .................. academia.ciclos.edit › Academia\CicloController@edit
+  GET|HEAD        academia/cursos ............................. academia.cursos.index › Academia\CursoController@index
+  POST            academia/cursos ............................. academia.cursos.store › Academia\CursoController@store
+  GET|HEAD        academia/cursos/create .................... academia.cursos.create › Academia\CursoController@create
+  GET|HEAD        academia/cursos/{curso} ....................... academia.cursos.show › Academia\CursoController@show
+  PUT|PATCH       academia/cursos/{curso} ................... academia.cursos.update › Academia\CursoController@update
+  DELETE          academia/cursos/{curso} ................. academia.cursos.destroy › Academia\CursoController@destroy
+  GET|HEAD        academia/cursos/{curso}/edit .................. academia.cursos.edit › Academia\CursoController@edit
+  POST            academia/cursos/{curso}/materia .. academia.cursos.materia.add › Academia\CursoController@addMateria
+  DELETE          academia/cursos/{curso}/materia/{materia} academia.cursos.materia.remove › Academia\CursoController…
+  GET|HEAD        academia/grupos ............................. academia.grupos.index › Academia\GrupoController@index
+  GET|HEAD        academia/grupos/{grupo} ....................... academia.grupos.show › Academia\GrupoController@show
+  GET|HEAD        academia/grupos/{grupo}/asistencia academia.grupos.asistencia › Academia\GrupoController@asistencia
+  POST            academia/grupos/{grupo}/asistencia academia.grupos.asistencia.guardar › Academia\GrupoController@gu…
+  GET|HEAD        academia/horarios/aula .................... academia.horarios.aula › Academia\HorarioController@aula
+  GET|HEAD        academia/horarios/base .................... academia.horarios.base › Academia\HorarioController@base
+  GET|HEAD        academia/horarios/clase ................. academia.horarios.clase › Academia\HorarioController@clase
+  GET|HEAD        academia/horarios/persona ........... academia.horarios.persona › Academia\HorarioController@persona
+  GET|HEAD        academia/horarios/profesor ........ academia.horarios.profesor › Academia\HorarioController@profesor
+  GET|HEAD        academia/kardex ............................ academia.kardex.index › Academia\KardexController@index
+  GET|HEAD        academia/kardex/historial .......... academia.kardex.historial › Academia\KardexController@historial
+  GET|HEAD        academia/kardex/print ...................... academia.kardex.print › Academia\KardexController@print
+  GET|HEAD        academia/kardex/show ......................... academia.kardex.show › Academia\KardexController@show
+  GET|HEAD        academia/planes .............................. academia.planes.index › Academia\PlanController@index
+  POST            academia/planes .............................. academia.planes.store › Academia\PlanController@store
+  GET|HEAD        academia/planes/create ..................... academia.planes.create › Academia\PlanController@create
+  GET|HEAD        academia/planes/{plane} ........................ academia.planes.show › Academia\PlanController@show
+  PUT|PATCH       academia/planes/{plane} .................... academia.planes.update › Academia\PlanController@update
+  DELETE          academia/planes/{plane} .................. academia.planes.destroy › Academia\PlanController@destroy
+  GET|HEAD        academia/planes/{plane}/edit ................... academia.planes.edit › Academia\PlanController@edit
+  GET|HEAD        academia/profesores .................. academia.profesores.index › Academia\ProfesorController@index
+  GET|HEAD        academia/profesores/{profesore} ........ academia.profesores.show › Academia\ProfesorController@show
+  GET|HEAD        academia/profesores/{profesor}/horario academia.profesores.horario › Academia\ProfesorController@ho…
+  POST            academia/set-ciclo .............................................................. academia.set-ciclo
+  GET|HEAD        api/academia/alumnos-por-grupo api.academia.alumnos-por-grupo › Academia\ApiController@alumnosPorGr…
+  GET|HEAD        api/academia/ciclos-disponibles api.academia.ciclos-disponibles › Academia\ApiController@ciclosDisp…
+  GET|HEAD        api/academia/grupo-detalle ........ api.academia.grupo-detalle › Academia\ApiController@grupoDetalle
+  GET|HEAD        api/academia/grupos-por-ciclo api.academia.grupos-por-ciclo › Academia\ApiController@gruposPorCiclo
+  GET|HEAD        api/academia/horario-base ........... api.academia.horario-base › Academia\ApiController@horarioBase
+  GET|HEAD        api/academia/materias-por-plan api.academia.materias-por-plan › Academia\ApiController@materiasPorP…
+  GET|HEAD        api/academia/metodos-eval ........... api.academia.metodos-eval › Academia\ApiController@metodosEval
+  GET|HEAD        api/academia/niveles ......................... api.academia.niveles › Academia\ApiController@niveles
+  GET|HEAD        api/academia/planes-por-nivel api.academia.planes-por-nivel › Academia\ApiController@planesPorNivel
+  GET|HEAD        api/academia/sedes ............................... api.academia.sedes › Academia\ApiController@sedes
+  GET|HEAD        api/academia/turnos ............................ api.academia.turnos › Academia\ApiController@turnos
+  GET|HEAD        api/user ........................................................................................... 
+  GET|HEAD        attendances ......................................... attendances.index › AttendanceController@index
+  GET|HEAD        attendances/export ................................ attendances.export › AttendanceController@export
+  GET|HEAD        attendances/print ................................... attendances.print › AttendanceController@print
+  GET|HEAD        devices ..................................................... devices.index › DeviceController@index
+  POST            devices ..................................................... devices.store › DeviceController@store
+  GET|HEAD        devices/create ............................................ devices.create › DeviceController@create
+  POST            devices/deduplicate ............................. devices.deduplicate › DeviceController@deduplicate
+  GET|HEAD        devices/{device} .............................................. devices.show › DeviceController@show
+  PUT             devices/{device} .......................................... devices.update › DeviceController@update
+  DELETE          devices/{device} ........................................ devices.destroy › DeviceController@destroy
+  POST            devices/{device}/check-status .................. devices.check-status › DeviceController@checkStatus
+  POST            devices/{device}/clear-attendance .. devices.clear-attendance › DeviceSyncController@clearAttendance
+  GET|HEAD        devices/{device}/edit ......................................... devices.edit › DeviceController@edit
+  DELETE          devices/{device}/employees/{employee} devices.employees.remove › FingerprintController@removeFromDe…
+  POST            devices/{device}/employees/{employee}/upload-fingerprints devices.employees.upload-fingerprints › F…
+  GET|HEAD        devices/{device}/progress ............................. devices.progress › DeviceController@progress
+  GET|HEAD        devices/{device}/refresh-data .................. devices.refresh-data › DeviceController@refreshData
+  POST            devices/{device}/restore ............................ devices.restore › DeviceSyncController@restore
+  POST            devices/{device}/set-time .......................... devices.set-time › DeviceSyncController@setTime
+  POST            devices/{device}/sync-all .......................... devices.sync-all › DeviceSyncController@syncAll
+  POST            devices/{device}/sync-attendances .. devices.sync-attendances › DeviceSyncController@syncAttendances
+  POST            devices/{device}/sync-fingerprints devices.sync-fingerprints › DeviceSyncController@syncFingerprints
+  POST            devices/{device}/sync-now .............................. devices.sync-now › DeviceController@syncNow
+  GET|HEAD        devices/{device}/sync-status ..................... devices.sync-status › DeviceController@syncStatus
+  POST            devices/{device}/sync-users .................... devices.sync-users › DeviceSyncController@syncUsers
+  GET|HEAD        employees ............................................... employees.index › EmployeeController@index
+  POST            employees ............................................... employees.store › EmployeeController@store
+  GET|HEAD        employees/create ...................................... employees.create › EmployeeController@create
+  GET|HEAD        employees/search ...................................... employees.search › EmployeeController@search
+  PUT             employees/{employee} .................................. employees.update › EmployeeController@update
+  DELETE          employees/{employee} ................................ employees.destroy › EmployeeController@destroy
+  POST            employees/{employee}/card .................... employees.update-card › EmployeeController@updateCard
+  GET|HEAD        employees/{employee}/edit ................................. employees.edit › EmployeeController@edit
+  POST            employees/{employee}/enroll-device ..... employees.enroll-device › EmployeeController@enrollOnDevice
+  POST            employees/{employee}/sync-devices ........ employees.sync-devices › EmployeeController@syncToDevices
+  GET|HEAD        fingerprints ...................................... fingerprints.index › FingerprintController@index
+  GET|HEAD        firebird ................................................. firebird.index › FirebirdController@index
+  POST            firebird/start ....................................... firebird.start › FirebirdController@startSync
+  GET|HEAD        firebird/sync/{sync} ....................................... firebird.sync › FirebirdController@sync
+  GET|HEAD        kpis/json ........................................ dashboard.kpisJson › DashboardController@kpisJson
+  GET|HEAD        login ................................................................ login › AuthController@create
+  POST            login ........................................................... login.store › AuthController@store
+  POST            logout ............................................................. logout › AuthController@destroy
+  GET|HEAD        notifications ........................ operations.notifications › OperationsController@notifications
+  GET|HEAD        sanctum/csrf-cookie .............. sanctum.csrf-cookie › Laravel\Sanctum › CsrfCookieController@show
+  GET|HEAD        sync-queue ........................................... operations.queue › OperationsController@queue
+  GET|HEAD        sync-queue/data ............................. operations.queue.data › OperationsController@queueData
+  DELETE          sync-queue/{sync} .................................. operations.delete › OperationsController@delete
+  POST            sync-queue/{sync}/cancel ........................... operations.cancel › OperationsController@cancel
+  POST            sync-queue/{sync}/retry .............................. operations.retry › OperationsController@retry
+
+                                                                                                  Showing [112] routes
+

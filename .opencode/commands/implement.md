@@ -1,9 +1,16 @@
 ---
-description: implement an approved plan with mandatory Git checkpoint, impact analysis, validation and review
+description: Ejecuta un plan ya aprobado o una tarea simple directa
 agent: team-lead
-model: opencode/big-pickle
 ---
 
-Implement this approved plan: $ARGUMENTS.
+Implementa: $ARGUMENTS
 
-Before the first edit, run Git preflight and establish a rollback/checkpoint point. Run `change-impact` on affected existing behavior. Delegate implementation only after consumers/contracts are known. Finish with affected-area QA, independent review, traceable commit, and up to three continuation options with one recommendation.
+Si existe un Task Boundary activo en `.opencode/state/current-task.md`,
+delega exactamente a los agentes y archivos que declara, respetando el
+orden de dependencias del plan (`.opencode/state/plan.md`). Si es una
+tarea SIMPLE sin Task Boundary previo, delega directo al especialista
+correspondiente.
+
+Al terminar la implementación, encadena automáticamente a `/test`. No
+marques la tarea como DONE aquí — eso ocurre después de `/test`,
+`/security` (si aplica) y `/review`.

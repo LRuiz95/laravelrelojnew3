@@ -48,18 +48,36 @@ class DashboardController extends Controller
     {
         // Analíticas centradas en el día en curso (lo que RH necesita ver
         // primero), con conectividad de checadores como quinto indicador.
-        $todayQuery = Attendance::whereDate('recorded_at', today());
-        $today = (clone $todayQuery)->count();
-        $yesterday = Attendance::whereDate('recorded_at', today()->subDay())->count();
-        $employeesToday = (clone $todayQuery)->whereNotNull('employee_id')->distinct('employee_id')->count('employee_id');
+        // Optimization: conditional aggregation reduces 7+ queries to 3.
+        $todayAgg = Attendance::whereDate('recorded_at', today())
+            ->selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN type IN (0, 4) THEN 1 ELSE 0 END) as ins,
+                SUM(CASE WHEN type IN (1, 5) THEN 1 ELSE 0 END) as outs,
+                COUNT(DISTINCT employee_id) as employees
+            ')->first();
+
+        $yesterdayAgg = Attendance::whereDate('recorded_at', today()->subDay())
+            ->selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN type IN (0, 4) THEN 1 ELSE 0 END) as ins,
+                SUM(CASE WHEN type IN (1, 5) THEN 1 ELSE 0 END) as outs
+            ')->first();
+
         $employeesTotal = Employee::count();
-        // Entradas/Salidas por modo real del checado (type): normales + tiempo extra.
-        $ins = (clone $todayQuery)->whereIn('type', [0, 4])->count();
-        $insYesterday = Attendance::whereDate('recorded_at', today()->subDay())->whereIn('type', [0, 4])->count();
-        $outs = (clone $todayQuery)->whereIn('type', [1, 5])->count();
-        $outsYesterday = Attendance::whereDate('recorded_at', today()->subDay())->whereIn('type', [1, 5])->count();
-        $deviceCount = Device::count();
-        $online = Device::where('status', 'online')->count();
+
+        $deviceAgg = Device::selectRaw('COUNT(*) as total, SUM(CASE WHEN status = "online" THEN 1 ELSE 0 END) as online')
+            ->first();
+
+        $today = (int) $todayAgg->total;
+        $yesterday = (int) $yesterdayAgg->total;
+        $employeesToday = (int) $todayAgg->employees;
+        $ins = (int) $todayAgg->ins;
+        $insYesterday = (int) $yesterdayAgg->ins;
+        $outs = (int) $todayAgg->outs;
+        $outsYesterday = (int) $yesterdayAgg->outs;
+        $deviceCount = (int) $deviceAgg->total;
+        $online = (int) $deviceAgg->online;
 
         return [
             [
@@ -125,7 +143,15 @@ class DashboardController extends Controller
     /** Pipeline con las 6 categorías fijas del sistema */
     private function pipeline(): array
     {
-        $unassigned = Attendance::whereNull('employee_id')->count();
+        // Optimization: combine attendance queries into one conditional aggregation.
+        $attAgg = Attendance::selectRaw('
+            SUM(CASE WHEN employee_id IS NULL THEN 1 ELSE 0 END) as unassigned,
+            SUM(CASE WHEN DATE(recorded_at) = CURDATE() THEN 1 ELSE 0 END) as today
+        ')->first();
+
+        $unassigned = (int) $attAgg->unassigned;
+        $today = (int) $attAgg->today;
+
         // Activo = con al menos un enrolamiento vivo (la columna active vive
         // ahora en la pivote device_employee).
         // OJO: wherePivot() solo existe en el objeto relación; dentro del
@@ -136,14 +162,15 @@ class DashboardController extends Controller
             ->count();
         $fingerprints = Fingerprint::count();
         $offline = Device::where('status', 'offline')->count();
-        $today = Attendance::whereDate('recorded_at', today())->count();
+        $deviceTotal = Device::count();
+        $employeeTotal = Employee::count();
 
         return [
-            ['label' => 'Dispositivos registrados', 'value' => Device::count(),       'color' => 'blue',   'icon' => 'bi-hdd-network',   'bar' => 100],
+            ['label' => 'Dispositivos registrados', 'value' => $deviceTotal,           'color' => 'blue',   'icon' => 'bi-hdd-network',   'bar' => 100],
             ['label' => 'Checadas sin asignar',     'value' => $unassigned,            'color' => 'orange', 'icon' => 'bi-question-circle', 'bar' => min(100, $unassigned * 4)],
-            ['label' => 'Empleados activos',        'value' => $active,                'color' => 'purple', 'icon' => 'bi-person-check',   'bar' => min(100, (int) (($active / max(1, Employee::count())) * 100))],
+            ['label' => 'Empleados activos',        'value' => $active,                'color' => 'purple', 'icon' => 'bi-person-check',   'bar' => min(100, (int) (($active / max(1, $employeeTotal)) * 100))],
             ['label' => 'Huellas protegidas',       'value' => $fingerprints,          'color' => 'pink',   'icon' => 'bi-fingerprint',    'bar' => min(100, $fingerprints * 3)],
-            ['label' => 'Checadores sin conexión',  'value' => $offline,               'color' => 'red',    'icon' => 'bi-wifi-off',       'bar' => min(100, (int) (($offline / max(1, Device::count())) * 100))],
+            ['label' => 'Checadores sin conexión',  'value' => $offline,               'color' => 'red',    'icon' => 'bi-wifi-off',       'bar' => min(100, (int) (($offline / max(1, $deviceTotal)) * 100))],
             ['label' => 'Chequeos hoy',             'value' => $today,                 'color' => 'green',  'icon' => 'bi-calendar-check', 'bar' => min(100, $today * 2)],
         ];
     }
@@ -251,11 +278,19 @@ class DashboardController extends Controller
     /** Banner de contexto: el día en curso, con última actividad global como respaldo */
     private function todayInfo(): array
     {
-        $todayQuery = Attendance::whereDate('recorded_at', today());
-        $checks = (clone $todayQuery)->count();
-        $employees = (clone $todayQuery)->whereNotNull('employee_id')->distinct('employee_id')->count('employee_id');
-        $firstToday = (clone $todayQuery)->orderBy('recorded_at')->first();
-        $lastToday = (clone $todayQuery)->latest('recorded_at')->first();
+        // Optimization: single query with aggregation for all today's metrics.
+        $todayAgg = Attendance::whereDate('recorded_at', today())
+            ->selectRaw('
+                COUNT(*) as checks,
+                COUNT(DISTINCT employee_id) as employees,
+                MIN(recorded_at) as first_check,
+                MAX(recorded_at) as last_check
+            ')->first();
+
+        $checks = (int) $todayAgg->checks;
+        $employees = (int) $todayAgg->employees;
+        $firstToday = $todayAgg->first_check ? \Illuminate\Support\Carbon::parse($todayAgg->first_check) : null;
+        $lastToday = $todayAgg->last_check ? \Illuminate\Support\Carbon::parse($todayAgg->last_check) : null;
 
         return [
             'label' => 'Ciclo activo de hoy',
@@ -263,11 +298,11 @@ class DashboardController extends Controller
             'checks' => $checks,
             'employees' => $employees,
             'hasChecksToday' => $checks > 0,
-            'firstCheck' => $firstToday?->recorded_at,
-            'lastCheck' => $lastToday?->recorded_at,
+            'firstCheck' => $firstToday,
+            'lastCheck' => $lastToday,
             // Respaldo informativo: aunque hoy no haya checadas, el usuario
             // quiere saber cuándo fue la última actividad real del sistema.
-            'lastActivity' => $lastToday?->recorded_at ?? Attendance::latest('recorded_at')->value('recorded_at'),
+            'lastActivity' => $lastToday ?? \Illuminate\Support\Carbon::parse(Attendance::latest('recorded_at')->value('recorded_at')),
         ];
     }
 

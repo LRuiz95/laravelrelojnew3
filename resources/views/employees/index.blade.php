@@ -85,12 +85,6 @@
                                         <a href="{{ route('employees.edit', $employee) }}" class="btn btn-sm btn-ghost" title="Editar" aria-label="Editar">
                                             <i class="bi bi-pencil"></i>
                                         </a>
-                                        <form action="{{ route('employees.upload-fingerprints', $employee) }}" method="POST" class="d-inline">
-                                            @csrf
-                                            <button class="btn btn-sm btn-ghost" title="Subir huella al checador" aria-label="Subir huella">
-                                                <i class="bi bi-cloud-arrow-up"></i>
-                                            </button>
-                                        </form>
                                         <form action="{{ route('employees.destroy', $employee) }}" method="POST" class="d-inline"
                                               data-confirm
                                               data-confirm-danger

@@ -92,11 +92,16 @@ Route::middleware('auth')->group(function () {
         Route::get('grupo-detalle', [AcademiaApiController::class, 'grupoDetalle'])->name('grupo-detalle');
     });
 
-    // Firebird Sync
+    // Firebird Sync — orden: rutas literales antes que params para evitar captura
     Route::prefix('firebird')->name('firebird.')->group(function () {
         Route::get('/', [FirebirdController::class, 'index'])->name('index');
         Route::post('/start', [FirebirdController::class, 'startSync'])->middleware('admin')->name('start');
+        Route::post('/execute-pending', [FirebirdController::class, 'executePending'])->middleware('admin')->name('execute-pending');
         Route::get('sync/{sync}', [FirebirdController::class, 'sync'])->name('sync');
+        Route::get('/{sync}/status', [FirebirdController::class, 'status'])->name('status');
+        Route::post('/{sync}/cancel', [FirebirdController::class, 'cancel'])->middleware('admin')->name('cancel');
+        Route::post('/{sync}/retry', [FirebirdController::class, 'retry'])->middleware('admin')->name('retry');
+        Route::delete('/{sync}', [FirebirdController::class, 'destroy'])->middleware('admin')->name('delete');
     });
 
     // Ciclo selector - AJAX endpoint
@@ -160,6 +165,7 @@ Route::middleware('admin')->group(function () {
     Route::get('/attendances/print', [AttendanceController::class, 'print'])->name('attendances.print');
     Route::get('/sync-queue', [OperationsController::class, 'queue'])->middleware('admin')->name('operations.queue');
     Route::get('/sync-queue/data', [OperationsController::class, 'queueData'])->middleware('admin')->name('operations.queue.data');
+    Route::get('/sync-queue/data-unified', [OperationsController::class, 'queueDataUnified'])->middleware('admin')->name('operations.queue.data.unified');
     Route::post('/sync-queue/{sync}/cancel', [OperationsController::class, 'cancel'])->middleware('admin')->name('operations.cancel');
     Route::post('/sync-queue/{sync}/retry', [OperationsController::class, 'retry'])->middleware('admin')->name('operations.retry');
     Route::delete('/sync-queue/{sync}', [OperationsController::class, 'delete'])->middleware('admin')->name('operations.delete');

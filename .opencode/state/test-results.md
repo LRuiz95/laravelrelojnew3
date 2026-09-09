@@ -1,21 +1,3 @@
-# Test Results — TASK-XXXXXXXX-<nombre>
+# Test Results
 
-RESULT
-Status: 
-
-Evidence:
-- 
-
-Changed:
-- 
-
-Generated (temporal):
-- none
-
-Confidence: 
-
-Risks:
-- 
-
-Follow-up:
--
+_No hay resultados de testing activos._

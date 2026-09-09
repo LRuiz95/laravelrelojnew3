@@ -82,6 +82,40 @@
         <a href="{{ route('firebird.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-clockwise"></i> Actualizar</a>
     </div>
 
+    @if($runningSync)
+        <div class="alert alert-primary d-flex flex-wrap align-items-center gap-3 mb-4" role="alert" id="running-sync-banner">
+            <div class="flex-grow-1">
+                <div class="fw-semibold"><i class="bi bi-hourglass-split me-2"></i>Sincronización en ejecución</div>
+                <div class="small text-muted">
+                    <strong>{{ $runningSync->operationLabel }}</strong>
+                    @if($runningSync->ciclo) · Ciclo: {{ $runningSync->ciclo }} @endif
+                    · Iniciada: {{ $runningSync->started_at?->format('H:i:s') }}
+                </div>
+            </div>
+            <div class="ms-3" style="min-width:200px">
+                <div class="progress" style="height:8px" role="progressbar" aria-valuenow="{{ min(100, (int) round(($runningSync->processed / max(1, $runningSync->total)) * 100)) }}" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width:{{ min(100, (int) round(($runningSync->processed / max(1, $runningSync->total)) * 100)) }}%"></div>
+                </div>
+                <div class="small text-muted mt-1">{{ $runningSync->processed }}/{{ $runningSync->total }} — Etapa: <strong>{{ $runningSync->stage }}</strong></div>
+            </div>
+            <a href="{{ route('firebird.sync', $runningSync) }}" class="btn btn-sm btn-outline-primary ms-2">Ver detalle</a>
+        </div>
+    @endif
+
+    @if($pendingCount > 0 && !$hasWorker)
+<div class="alert alert-warning d-flex flex-wrap align-items-center gap-3 mb-3" id="queue-stalled-alert">
+  <div class="flex-grow-1">
+    <div class="fw-semibold"><i class="bi bi-exclamation-triangle me-2"></i>Cola detenida — {{ $pendingCount }} sincronización(es) en espera</div>
+    <div class="small text-muted">No se detectó worker activo. La cola no avanzará hasta procesarla.</div>
+  </div>
+  <form method="POST" action="{{ route('firebird.execute-pending') }}" class="ms-auto">
+    @csrf
+    <button class="btn btn-warning btn-sm"><i class="bi bi-play-circle me-1"></i>Procesar ahora</button>
+  </form>
+  <a href="{{ route('operations.queue') }}" class="btn btn-outline-secondary btn-sm">Ver cola unificada</a>
+</div>
+@endif
+
     {{-- KPIs --}}
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
@@ -781,3 +815,39 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 @endpush
+
+@if($runningSync)
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fallback reload si el polling falla
+    let reloadTimer = setTimeout(function() { window.location.reload(); }, 15000);
+    const syncId = {{ $runningSync->id }};
+    const statusUrl = "{{ route('firebird.status', $runningSync) }}";
+    const banner = document.getElementById('running-sync-banner');
+    async function pollStatus() {
+        try {
+            const res = await fetch(statusUrl, {headers: {'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}});
+            if (!res.ok) return;
+            const data = await res.json();
+            if (banner && data.total !== undefined) {
+                const bar = banner.querySelector('.progress-bar');
+                const meta = banner.querySelector('.small.text-muted.mt-1');
+                if (bar && data.total !== null) {
+                    const pct = Math.min(100, Math.round((data.processed / Math.max(1, data.total)) * 100));
+                    bar.style.width = pct + '%';
+                    bar.setAttribute('aria-valuenow', pct);
+                }
+                if (meta) meta.textContent = `${data.processed ?? 0}/${data.total ?? 0} — Etapa: ${data.stage ?? '-'}`;
+            }
+            if (['completed','failed','cancelled'].includes(data.status)) {
+                clearTimeout(reloadTimer);
+                window.location.reload();
+            }
+        } catch(e) {}
+    }
+    setInterval(pollStatus, 3000);
+});
+</script>
+@endpush
+@endif

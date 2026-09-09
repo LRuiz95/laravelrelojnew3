@@ -1,21 +1,3 @@
-# Code Review Results — TASK-XXXXXXXX-<nombre>
+# Review Results
 
-RESULT
-Status: 
-
-Evidence:
-- 
-
-Changed:
-- 
-
-Generated (temporal):
-- none
-
-Confidence: 
-
-Risks:
-- 
-
-Follow-up:
--
+_No hay revisión de código activa._

@@ -226,6 +226,23 @@ class CatalogSmartSync implements SyncStrategyInterface
             ],
             'identity' => ['numero_alumno', 'inicial', 'final', 'periodo', 'clave_asignatura', 'id_eval'],
         ],
+        'EMPLEADOS' => [
+            'mysql'   => 'employees',
+            'columns' => [
+                'user_id'         => 'NUMEMPLEADO',
+                'name'            => 'NOMBREEMPLEADO',
+                'numero_empleado' => 'NUMEMPLEADO',
+                'departamento'    => 'DEPARTAMENTO',
+                'cargo'           => 'CARGO',
+                'contrato'        => 'CONTRATO',
+                'status_actual'   => 'STATUSACTUAL',
+                'fecha_ingreso'   => 'FECHA_INGRESO',
+                'id_campus'       => 'ID_CAMPUS',
+                'nivel'           => 'NIVEL',
+                'tarjeta_id'      => 'TARJETA_ID',
+            ],
+            'identity' => ['user_id'],
+        ],
     ];
 
     /** Tablas que siempre se procesan en chunks por su tamaño */

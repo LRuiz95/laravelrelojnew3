@@ -123,25 +123,8 @@
             <h2 class="h6 mb-0"><i class="bi bi-fingerprint me-1"></i> Huellas guardadas</h2>
             <span class="badge {{ $employee->fingerprints->count() ? 'cat-green' : 'cat-gray' }}">{{ $employee->fingerprints->count() }}</span>
         </div>
-        @if ($availableFingerprints->isNotEmpty())
-            <form action="{{ route('employees.assign-fingerprint', $employee) }}" method="POST" class="border rounded p-3 mb-3">
-                @csrf
-                                <label for="fingerprint_id" class="form-label small fw-semibold">Cambiar propietario de una plantilla</label>
-                                <input type="search" id="fingerprintEmployeeSearch" class="form-control form-control-sm mb-2"
-                      placeholder="Buscar empleado por nombre o ID..." aria-label="Buscar huella por empleado">
-                <div class="input-group">
-                    <select id="fingerprint_id" name="fingerprint_id" class="form-select" required>
-                        <option value="">Selecciona una plantilla...</option>
-                        @foreach ($availableFingerprints as $availableFingerprint)
-                            <option value="{{ $availableFingerprint->id }}" data-search="{{ strtolower(($availableFingerprint->employee?->name ?? '').' '.$availableFingerprint->employee?->user_id) }}">
-                                {{ $availableFingerprint->employee?->name ?? 'Sin empleado' }} · Dedo {{ $availableFingerprint->finger }} · {{ $availableFingerprint->device?->name ?? 'Origen desconocido' }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <button class="btn btn-outline-primary" type="submit">Asignar</button>
-                </div>
-                <div class="form-text">Mueve una plantilla de otro empleado a este registro. Para compartirla entre checadores, usa <strong>Copiar a...</strong>.</div>
-            </form>
+@if ($availableFingerprints->isNotEmpty())
+            <p class="text-muted small">Reasignación de huellas: no disponible actualmente</p>
         @endif
         @forelse ($employee->fingerprints as $fingerprint)
             <div class="employee-fingerprint-row d-flex justify-content-between align-items-center flex-wrap gap-1">
@@ -176,6 +159,7 @@
                         <i class="bi bi-trash"></i>
                     </button>
                 </form>
+<p class="text-muted small">Eliminar huella: no disponible actualmente</p>
             </div>
         @empty
             <p class="text-muted mb-0">Este empleado no tiene huellas sincronizadas.</p>

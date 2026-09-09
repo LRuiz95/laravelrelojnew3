@@ -29,6 +29,7 @@ class CustomSyncStrategy implements SyncStrategyInterface
         'EMPLEADOS_CONTRATOS_CAT' => 'catalog',
         'ALUMNOS' => 'catalog',
         'PROFESORES' => 'catalog',
+        'EMPLEADOS' => 'catalog',
 
         // Tablas de ciclo (CycleDirectSync) - REQUIEREN filtro por ciclo
         'GRUPOS' => 'cycle',

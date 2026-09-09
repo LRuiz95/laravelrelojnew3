@@ -1,74 +1,181 @@
-# Decisiones de Arquitectura — TASK-20260907-separar-controllers
+# Decisiones de Arquitectura — TASK-2026-09-09-firebird-queue-fix
 
-## 2026-09-07: Extracción de FingerprintController y DeviceSyncController
+## ADR-001: Estrategia de ejecución de colas en XAMPP sin Supervisor
 
-### Contexto
-EmployeeController (567 líneas) y DeviceController (526 líneas) violan el principio de responsabilidad única al mezclar CRUD básico con operaciones de sincronización biométrica y de dispositivos.
+**Fecha**: 2026-09-09  
+**Estado**: Aceptada  
+**Contexto**: `.env` usa `QUEUE_CONNECTION=database` (config/queue.php líneas 37-43). No hay `queue:work` corriendo. `FirebirdSyncJob` (líneas 17-22) implementa `ShouldQueue` con `tries=3`, `timeout=3600`, middleware `WithoutOverlapping`. El usuario en Windows XAMPP no lanza workers manualmente.
 
-### Decisión
-Extraer dos controllers nuevos mediante refactor mínimo:
-- **FingerprintController**: operaciones sobre plantillas de huella (assign, copy, delete, upload, remove)
-- **DeviceSyncController**: operaciones de sincronización con dispositivos ZKTeco (sync users/fingerprints/attendances/all, setTime, clearAttendance, restore)
+**Decisión**: Enfoque híbrido (Opción C del plan):
+- Mantener `ShouldQueue` + `dispatch()` async como default (producción con Horizon/Supervisor).
+- Añadir `FirebirdSyncJob::dispatchNow()` que usa `dispatchSync()` **solo cuando se invoca explícitamente desde botón "Ejecutar ahora"**.
+- Para ETL largo (1h), el botón "Ejecutar ahora" lanza `Artisan::call('queue:work', ['--once'=>true, '--stop-when-empty'=>true])` en proceso CLI separado, no `dispatchSync()` directo.
+- Health-check `hasWorker()` en `FirebirdController` detecta worker vivo (tabla `jobs` con `reserved_at` < 2 min).
 
-### Alternativas consideradas
-1. **Service classes** — Rechazado: añade indirección sin necesidad; los controllers ya son delgados en lógica de negocio (delegan a ZktecoService y Jobs).
-2. **Mantener status quo** — Rechazado: dificulta testing, onboarding y mantenimiento.
-3. **Extraer a traits** — Rechazado: no resuelve el problema de rutas ni testing aislado.
+**Justificación**:
+- Garantiza resolución en XAMPP sin acción manual recurrente.
+- No rompe producción: worker real sigue procesando async normal.
+- `Artisan::call queue:work --once` respeta `after_commit`, `retry_after`, `WithoutOverlapping`, y corre sin timeout web.
+- Cambio mínimo: ~40 líneas en Job + Controller + Vista + Route.
 
-### Consecuencias
-- **Positivas**: Controllers más pequeños y enfocados; testing aislado por responsabilidad; rutas más semánticas (`/fingerprints/*`, `/devices/*/sync-*`).
-- **Negativas**: Más archivos; routes/web.php crece ligeramente; `queueSync` duplicado o compartido (ver nota técnica).
+**Alternativas rechazadas**:
+- A) Solo documentar worker: no resuelve "nunca resuelve".
+- B) `dispatchSync()` directo: bloquea request HTTP 1h, timeout Apache/PHP, rompe UX.
 
-### Nota técnica: `queueSync`
-`queueSync` es `protected` en DeviceController y usado internamente por los métodos de sync. Al mover esos métodos a DeviceSyncController, `queueSync` debe moverse también (como `private` o `protected`). DeviceController NO lo necesita tras el refactor (sus métodos restantes: progress, syncStatus, refreshData, checkStatus, syncNow, deduplicate no lo usan).
-
-### Testing
-Nivel 3 asignado: toca integración ZKTeco, DB (DeviceSync, Fingerprint, Employee, Device), middleware auth/admin/throttle. Requiere suite relevante amplia.
-
-### Rollback
-Documentado en `state/plan.md`.
+**Consecuencias**:
+- Nuevo endpoint `POST /firebird/execute-pending` (admin middleware).
+- Vista `/firebird` muestra banner condicional + botón.
+- `FirebirdSyncJob` gana método estático `dispatchNow(FirebirdSync $sync, ...)`.
+- Requiere test Nivel 3 (queue, BD, sincronización).
 
 ---
 
-## 2026-09-08: Fix Device Sync Queue & Controller Stubs (TASK-2026-09-08-device-sync-fix)
+## ADR-002: Unificación de `/sync-queue` sin mergear dominios
 
-### Contexto
-Tres problemas bloquean la sincronización Devices ↔ ZKTeco:
-1. **CRÍTICO**: `SyncDeviceJob` sin propiedad `$queue` → va a cola `default`; worker escucha `device-sync`.
-2. **MEDIUM**: `DeviceSyncController::syncUsers|syncFingerprints|syncAttendances` son stubs que retornan fake JSON.
-3. **INFO**: BD vacía (estado inicial esperado).
+**Fecha**: 2026-09-09  
+**Estado**: Aceptada  
+**Contexto**: `DeviceSync` (ZKTeco) y `FirebirdSync` (ETL Legacy) son agregados distintos con tablas, estados y ciclos de vida diferentes. `OperationsController@queue` y `@queueData` (líneas 17-74) solo manejan `DeviceSync`. Usuario pide "mesclarlo en /sync-queue para que muestre todo lo que hay en la cola".
 
-### Decisiones
+**Decisión**: Un solo endpoint combinado `operations.queue.data.unified` + UI combinada en `operations/queue.blade.php`.
 
-#### 1. Cola dedicada `device-sync` (mantener arquitectura actual)
-- **Decisión**: Agregar `public string $queue = 'device-sync';` a `SyncDeviceJob`.
-- **Razón**: Aislar jobs de sincronización de dispositivos de otros jobs del sistema (emails, notificaciones, etc.). Worker dedicado `--queue=device-sync` permite escalar/monitorear independiente.
-- **Alternativa rechazada**: Cambiar worker a `--queue=default` — rompe aislamiento y mezclaría prioridades.
+**Estructura JSON normalizada**:
+```php
+// FirebirdSync → normalized
+[
+  'id' => $sync->id,
+  'type' => 'firebird',
+  'device' => $sync->operation_label, // o tabla principal
+  'operation' => $sync->operation,
+  'operation_label' => $sync->operationLabel,
+  'status' => $sync->status,
+  'stage' => $sync->stage,
+  'processed' => $sync->processed,
+  'total' => $sync->total,
+  'created' => $sync->created_count,
+  'updated' => $sync->updated_count,
+  'error' => $sync->error_message,
+  'cancel_url' => route('firebird.cancel', $sync), // NUEVO route
+  'retry_url' => $sync->status === 'failed' ? route('firebird.retry', $sync) : null, // NUEVO route
+  'delete_url' => route('firebird.delete', $sync), // NUEVO route
+  'items' => $sync->items->map(...),
+  'created_at' => $sync->created_at->format('d/m/Y H:i'),
+]
 
-#### 2. Patrón consistente para todos los botones de sync
-- **Decisión**: `syncUsers`, `syncFingerprints`, `syncAttendances` usan mismo flujo que `syncAll`:
-  1. Crear `DeviceSync` con `operation` correspondiente
-  2. `SyncDeviceJob::dispatch($device, $sync, $operation)`
-  3. Retornar `['status' => 'queued', 'sync_id' => $sync->id, 'operation' => '...']`
-- **Razón**: 
-  - `SyncDeviceJob` ya soporta `operation` = `'users' | 'fingerprints' | 'attendances' | 'all'` (líneas 82-119)
-  - JS de vista ya hace polling genérico a `sync-status` — compatible sin cambios
-  - Evita duplicar lógica de progreso, error handling, `WithoutOverlapping`
+// DeviceSync → normalized (ya existe en queueData líneas 52-72)
+```
 
-#### 3. Import `Illuminate\Http\Request` en DeviceSyncController
-- **Decisión**: Agregar `use Illuminate\Http\Request;` y type-hint `Request $request` en los 3 métodos.
-- **Razón**: Corrige bug actual (parámetro sin type-hint) y sigue convención Laravel/PSR-12.
+**Vista**: Tabla única con columna "Tipo" (badge `firebird`/`device`). Filtros: Estado, Operación, **Tipo**. Acciones por fila delegan a controlador correspondiente.
 
-#### 4. Sin cambios en ZktecoService ni Vista
-- **Decisión**: `ZktecoService` ya tiene `syncUsers()`, `syncAttendances()`, `syncFingerprints()` funcionales. Vista JS ya maneja polling y progress bars.
-- **Razón**: Cambio mínimo — solo conectar controller → job → service existente.
+**Rutas nuevas (admin)**:
+- `POST /firebird/{sync}/cancel` → `FirebirdController@cancel`
+- `POST /firebird/{sync}/retry` → `FirebirdController@retry` (re-dispatch mismo job)
+- `DELETE /firebird/{sync}` → `FirebirdController@delete`
 
-### Consecuencias
-- **Positivas**: Fix mínimo (< 30 líneas totales), reutiliza arquitectura existente, zero breaking changes.
-- **Negativas**: Requiere worker `--queue=device-sync` corriendo (ya está activo PID 984).
+**Justificación**:
+- Un solo lugar para ver "todo lo que hay en la cola" (petición usuario).
+- Dominios separados en backend: cada controlador maneja su agregado.
+- Reutiliza `DeviceSync` actions existentes; añade equivalentes para `FirebirdSync`.
+- Testing Nivel 3 (integración dos agregados).
 
-### Testing
-Nivel 4 (suite completa) — ver `plan.md` justificación.
+**Alternativas rechazadas**:
+- Dos endpoints + UI con tabs: más complejo, duplica lógica polling/render.
+- Mergear modelos/tablas: rompe dominio, migración riesgosa, no pedido.
 
-### Rollback
-Ver `plan.md` sección "Rollback".
+---
+
+## ADR-003: Notificaciones FirebirdSync en AdminLayoutComposer
+
+**Fecha**: 2026-09-09  
+**Estado**: Aceptada  
+**Contexto**: `AdminLayoutComposer@notifications` (líneas 34-128) construye notificaciones para `Device`, `DeviceSync`, `Attendance`, `Employee`, `Fingerprint`. **No incluye `FirebirdSync`**.
+
+**Decisión**: Añadir 3 reglas en `notifications()`:
+
+1. **Pending > 5 min sin worker** (warning):
+   ```php
+   $stuckPending = FirebirdSync::where('status', 'pending')
+       ->where('created_at', '<', now()->subMinutes(5))
+       ->count();
+   if ($stuckPending > 0) { /* item warning con link a /firebird */ }
+   ```
+
+2. **Failed** (danger):
+   ```php
+   $failedCount = FirebirdSync::where('status', 'failed')
+       ->where('updated_at', '>=', now()->subDay())
+       ->count();
+   if ($failedCount > 0) { /* item danger */ }
+   ```
+
+3. **Completed con cambios** (success):
+   ```php
+   $lastCompleted = FirebirdSync::where('status', 'completed')
+       ->where('created_count', '>', 0)
+       ->orWhere('updated_count', '>', 0)
+       ->latest()->first();
+   if ($lastCompleted) { /* item success */ }
+   ```
+
+**Justificación**:
+- Visibilidad global sin ir a `/firebird` ni `/sync-queue`.
+- Coherente con notificaciones existentes de `DeviceSync` (líneas 50-61, 102-114).
+- Nivel de testing 2 (Composer + Vista).
+
+---
+
+## ADR-004: Health-check de worker para banner condicional
+
+**Fecha**: 2026-09-09  
+**Estado**: Aceptada  
+**Contexto**: Vista `/firebird` (líneas 85-103) muestra banner `$runningSync` con auto-reload 5s. Pero si no hay worker, nunca hay `running`.
+
+**Decisión**: Método `hasWorker()` en `FirebirdController` (o trait/servicio):
+```php
+protected function hasWorker(): bool
+{
+    // Opción 1: job reservado recientemente
+    $recentReserved = DB::table('jobs')
+        ->where('queue', 'default')
+        ->whereNotNull('reserved_at')
+        ->where('reserved_at', '>', now()->subMinutes(2))
+        ->exists();
+    
+    // Opción 2: heartbeat en cache (requiere worker que lo escriba)
+    // $heartbeat = Cache::get('queue:worker:heartbeat');
+    
+    return $recentReserved;
+}
+```
+Banner en vista: `if (!hasWorker() && $pendingCount > 0) { /* mostrar botón */ }`
+
+**Justificación**:
+- Simple, sin infra extra (Opción 1).
+- Detecta worker real procesando, no solo "existe proceso".
+- Si falsos negativos → botón aparece innecesario (seguro), no al revés.
+
+---
+
+## ADR-005: Niveles de testing asignados
+
+| Fase | Nivel | Justificación |
+|------|-------|---------------|
+| 1. Fix crítico queue | **3** | Toca BD (jobs, firebird_syncs), queue (dispatch, worker), sincronización Firebird→MySQL. Requiere suite relevante amplia. |
+| 2. UI feedback polling | **2** | JS/Blade/Controller aislado. Tests específicos + relacionados. |
+| 3. Unificación /sync-queue | **3** | Integración dos agregados (FirebirdSync + DeviceSync), queue data endpoint combinado. |
+| 4. Notificaciones | **2** | Composer + Vista. Tests específicos. |
+
+**Escalamiento automático**: Si `tester` detecta que Fase 1 afecta más de lo declarado (ej. migración schema), escalar a Nivel 4 y notificar en `state/test-results.md`.
+
+---
+
+## ADR-006: Seguridad y Human Approval
+
+**Severidad anticipada**: **MEDIUM** (endpoint `execute-pending` admin, `Artisan::call` en web request).
+
+**Riesgos**:
+- `Artisan::call('queue:work')` expone capacidad de procesar colas vía HTTP admin.
+- Mitigación: middleware `admin` + rate limit + CSRF + log de auditoría.
+
+**Human Approval**: **NO** (no es CRITICAL, no toca auth/pagos/migraciones schema). Pero `security` + `reviewer` obligatorios (MEDIUM).
+
+**Stop condition**: Si `security` encuentra CRITICAL (ej. command injection en `Artisan::call`), escalar a humano inmediatamente.

@@ -19,11 +19,4 @@
 - <ruta del archivo> — creado por <agente> — <para qué> — TASK-<id>
 ```
 
-## Ejemplo
-
-```
-- storage/debug/attendance-sync-dump.json — creado por integration — inspeccionar payload duplicado — TASK-2026-0912
-- database/scratch_check_orphans.sql — creado por data-integrity — query puntual de verificación de huérfanos — TASK-2026-0912
-```
-
-(sin archivos temporales registrados para la tarea activa)
+_No hay archivos temporales activos._

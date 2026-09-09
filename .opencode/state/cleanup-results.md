@@ -1,81 +1,57 @@
-# cleanup-results.md
+# Cleanup Results — TASK-2026-09-09-firebird-queue-fix
 
-Limpiado para TASK-2026-09-08-device-sync-fix.
+**Date:** 2026-09-09
+**Agent:** cleanup
+**Task:** TASK-2026-09-09-firebird-queue-fix
+**Status:** DONE
 
-RESULT
-Status: PASS
+---
 
-## Estado archivado
-- Archivo creado: `.opencode/state/archive/TASK-2026-09-08-device-sync-fix.md`
-- Contenido: Task Boundary original (`current-task.md`) + `plan.md`,
-  `findings.md`, `test-results.md`, `security-results.md`,
-  `review-results.md` (contenido íntegro antes del reset).
+## Checklist
 
-## Estado reseteado (`.opencode/state/`)
-- `current-task.md` → plantilla vacía (TASK-XXXXXXXX-<nombre>)
-- `plan.md` → `(sin plan registrado para la tarea activa)`
-- `findings.md` → `(sin hallazgos registrados para la tarea activa)`
-- `test-results.md` → plantilla RESULT (Status vacío)
-- `security-results.md` → plantilla RESULT (Status vacío)
-- `review-results.md` → plantilla RESULT (Status vacío)
-- `generated-files.md` → ya estaba en plantilla vacía `(sin archivos
-  temporales registrados para la tarea activa)`; sin cambios.
+- [x] Leí `.opencode/state/generated-files.md` completo para TASK-2026-09-09-firebird-queue-fix.
+- [x] Cada archivo a eliminar aparece en `generated-files.md` **y** en el campo `Generated (temporal):` de la evidencia del agente que lo creó (test-results.md líneas 31-37, findings.md línea 80).
+- [x] Confirmé que ningún archivo a eliminar aparece también en `Changed:` de ningún reporte de evidencia (findings.md Changed: líneas 9-28, test-results.md Changed: líneas 19-28 — todos son archivos de producción en `app/`, `resources/`, `routes/`; ninguno en temp).
+- [x] Confirmé que ningún archivo a eliminar es un `Expected output` del Task Boundary activo (current-task.md Expected outputs: archivos en `app/`, `resources/`, `routes/`, `tests/` — ninguno en temp).
+- [x] Cada `rm` se solicitó con confirmación explícita (`effect: ask`), verificando existencia con `Test-Path` antes y `Test-Path` post-delete.
+- [x] Archivé el contenido de `state/*.md` de la tarea cerrada en `state/archive/TASK-2026-09-09-firebird-queue-fix.md` antes de resetear cualquier plantilla.
+- [x] Reseteé `current-task.md`, `plan.md`, `findings.md`, `test-results.md`, `security-results.md`, `review-results.md`, `generated-files.md` a su plantilla vacía.
+- [x] No toqué `decisions.md` (ADR-001–006 preservados, 181 líneas intactas).
+- [x] No toqué ningún archivo fuera de `.opencode/state/` salvo los explícitamente listados y confirmados en `generated-files.md`.
+- [x] Escribí este resultado en `.opencode/state/cleanup-results.md`.
 
-## Archivos temporales
-- **No se eliminó ningún archivo.**
-- `.opencode/state/generated-files.md` no tiene entradas para esta tarea
-  (`(sin archivos temporales registrados para la tarea activa)`).
-- Scratch de tester (`test_queue.php`, `test_queue_check.php`) ya fueron
-  eliminados por el propio `tester` durante la tarea (constatado en
-  `test-results.md`); verificado que no existen al cierre.
-- `tests/Feature/SyncQueueTest.php` — **NO eliminado**: test de evidencia
-  válido en `tests/**` (lo decide `tester`, no `cleanup`).
-- `tests/Feature/DeviceSyncControllerTest.php` y resto de `tests/**` —
-  no tocados.
+---
 
-## Código de producción
-- No tocado. `app/Jobs/SyncDeviceJob.php`, `app/Http/Controllers/DeviceSyncController.php`,
-  `routes/web.php`, etc. quedan intactos y son responsabilidad de git/`reviewer`.
+## Changed (cleanup)
 
-## Comprobaciones realizadas
-- [x] Revisado `.opencode/state/generated-files.md` — sin entradas para esta tarea.
-- [x] Confirmado doble referencia (declarado + evidencia): N/A — no había archivos declarados.
-- [x] Confirmado que ningún archivo a eliminar aparece en `Changed:` de evidencia — N/A.
-- [x] Verificado que ningún archivo a eliminar es `Expected output` del Task Boundary — N/A.
-- [x] No se ejecutó ningún `rm`: no había archivos temporales confirmados por limpiar.
-- [x] Archivado el contenido de `state/*.md` antes de resetear plantillas.
-- [x] Plantillas reseteadas; `decisions.md` preservado (historial acumulativo, no tocado).
-- [x] No se tocó ningún archivo fuera de `.opencode/state/` ni `archive/`.
+- `.opencode/state/current-task.md` — reset a plantilla vacía
+- `.opencode/state/plan.md` — reset a plantilla vacía
+- `.opencode/state/findings.md` — reset a plantilla vacía
+- `.opencode/state/test-results.md` — reset a plantilla vacía
+- `.opencode/state/security-results.md` — reset a plantilla vacía
+- `.opencode/state/review-results.md` — reset a plantilla vacía
+- `.opencode/state/generated-files.md` — reset a plantilla vacía
+- `.opencode/state/archive/TASK-2026-09-09-firebird-queue-fix.md` — creado (archive de la tarea)
 
-## Nota para team-lead (fuera del alcance de cleanup)
-Archivos sin trackear en la raíz del proyecto que NO están declarados en
-`generated-files.md` y por lo tanto quedan INTACTOS (cleanup no decide por
-su cuenta): `create_user.php`, `test_device.php`, `check_attendance.php`,
-`list_routes.bat`, `routes_output.txt`, `report.md`. Si son scratch de
-tareas anteriores, declararlos en `generated-files.md` en una tarea propia
-para que un cleanup posterior pueda tramitarlos.
+## Verified (temporales eliminados)
 
-## Resultado final
-- **Test**: Nivel 2 aplicado; 2 tests PASAN (`SyncQueueTest.php`). Suite completa bloqueada por conflicto de propiedad `$queue` documentado; resuelto y re-test pasado.
-- **Security**: LOW (documentado en security-results.md archivado).
-- **Reviewer**: APPROVED (documentado en review-results.md archivado).
-- **Task**: DONE → cleanup completado. Estado listo para nueva tarea.
+1. `C:\Users\UTEAdmin\AppData\Local\Temp\opencode\test_pending.php` — Test-Path pre: True → post: False ✅
+2. `C:\Users\UTEAdmin\AppData\Local\Temp\opencode\test_pending2.php` — Test-Path pre: True → post: False ✅
+3. `C:\Users\UTEAdmin\AppData\Local\Temp\opencode\test_unified.php` — Test-Path pre: True → post: False ✅
+4. `C:\Users\UTEAdmin\AppData\Local\Temp\opencode\test_empleados.php` — Test-Path pre: True → post: False ✅
+5. `C:\Users\UTEAdmin\AppData\Local\Temp\opencode\test_empleados2.php` — Test-Path pre: True → post: False ✅
+6. `C:\Users\UTEAdmin\AppData\Local\Temp\opencode\check_employees_schema.php` — Test-Path pre: True → post: False ✅
+7. `C:\Users\UTEAdmin\AppData\Local\Temp\opencode\check_fb_empleados_cols.php` — Test-Path pre: True → post: False ✅
 
-Evidence:
-- Lectura íntegra de `generated-files.md`, `current-task.md`, `plan.md`,
-  `findings.md`, `test-results.md`, `security-results.md`,
-  `review-results.md` antes del reset.
-- `glob tests/Feature/SyncQueueTest.php` → existe (no se borra).
-- `glob test_queue*.php` → no existe ningún scratch residual.
-- Archivo de archivo creado y plantillas reseteadas (ver secciones superiores).
+## Generated (temporal) — Ninguno (cleanup no genera archivos)
 
-Generated (temporal):
-- none
+## Confidence: high
 
-Confidence: high
+## Risks: none
 
-Risks:
-- Archivos sin trackear sin declarar en raíz (ver "Nota para team-lead").
+- Ningún archivo eliminado aparecía en `Changed:` de ningún reporte de evidencia.
+- Ningún archivo eliminado era `Expected output` del Task Boundary.
+- `decisions.md` no fue modificado (historial preservado).
+- No se tocaron archivos fuera de `.opencode/state/`.
 
-Follow-up:
-- team-lead: triage de los archivos sin trackear no declarados (raíz del proyecto).
+## Follow-up: none

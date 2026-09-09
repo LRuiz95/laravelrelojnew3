@@ -1,21 +1,3 @@
-# Security Review Results — TASK-XXXXXXXX-<nombre>
+# Security Results
 
-RESULT
-Status: 
-
-Evidence:
-- 
-
-Changed:
-- 
-
-Generated (temporal):
-- none
-
-Confidence: 
-
-Risks:
-- 
-
-Follow-up:
--
+_No hay revisión de seguridad activa._

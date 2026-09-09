@@ -8,6 +8,7 @@ use App\Jobs\DeprovisionEmployeeJob;
 use App\Jobs\SyncEmployeeToDeviceJob;
 use App\Models\Device;
 use App\Models\Employee;
+use App\Models\Fingerprint;
 use App\Services\ZktecoService;
 use App\Http\Requests\EmployeeFormRequest;
 use Illuminate\Http\JsonResponse;

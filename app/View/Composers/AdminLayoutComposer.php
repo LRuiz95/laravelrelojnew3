@@ -43,9 +43,53 @@ class AdminLayoutComposer
         $todayChecks = Attendance::whereDate('recorded_at', today())->count();
         $lastSync = DeviceSync::query()->latest()->first();
         $failedSyncs = DeviceSync::where('status', 'failed')->where('updated_at', '>=', now()->subDay())->count();
+        $pendingFirebird = \App\Models\FirebirdSync::where('status', 'pending')->where('created_at', '<', now()->subMinutes(5))->count();
+        $failedFirebird = \App\Models\FirebirdSync::where('status', 'failed')->where('updated_at', '>=', now()->subDay())->count();
+        $lastCompletedFirebird = \App\Models\FirebirdSync::where('status', 'completed')->latest('finished_at')->first();
         $fingerprints = Fingerprint::count();
 
         $seed = 1;
+
+        if ($pendingFirebird > 0) {
+            $items[] = $this->item(
+                'warning',
+                $seed++,
+                "{$pendingFirebird} sincronización(es) Firebird pendiente(s) >5 min",
+                'La cola Firebird está detenida. Procesa la cola en /firebird.',
+                'Firebird',
+                route('firebird.index'),
+                false,
+                'FB'
+            );
+        }
+
+        if ($failedFirebird > 0) {
+            $failedMsg = \App\Models\FirebirdSync::where('status', 'failed')->latest()->first()?->error_message ?? 'Revisa el log.';
+            $items[] = $this->item(
+                'danger',
+                $seed++,
+                "{$failedFirebird} sincronización(es) Firebird fallida(s)",
+                \Illuminate\Support\Str::limit($failedMsg, 80),
+                'Firebird',
+                route('firebird.index'),
+                false,
+                '!'
+            );
+        }
+
+        if ($lastCompletedFirebird && $lastCompletedFirebird->finished_at && $lastCompletedFirebird->finished_at->gt(now()->subDay())) {
+            $when = $lastCompletedFirebird->finished_at->diffForHumans();
+            $items[] = $this->item(
+                'success',
+                $seed++,
+                'Firebird sincronizado',
+                " {$lastCompletedFirebird->created_count} creados, {$lastCompletedFirebird->updated_count} actualizados. {$when}.",
+                'Firebird',
+                route('firebird.sync', $lastCompletedFirebird),
+                true,
+                'OK'
+            );
+        }
 
         if ($failedSyncs > 0) {
             $items[] = $this->item(

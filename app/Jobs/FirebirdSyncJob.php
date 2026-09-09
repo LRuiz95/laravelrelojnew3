@@ -53,6 +53,24 @@ class FirebirdSyncJob implements ShouldQueue
         }
     }
 
+    /**
+     * Ejecuta el job sincrónicamente sin necesidad de un queue worker.
+     * Útil para admin actions que deben completar el ciclo immediately.
+     *
+     * @param FirebirdSync $sync
+     * @param string $operation
+     * @param ?string $ciclo
+     * @param bool $deleteOrphans
+     * @param array $tables
+     * @param bool $skipExisting
+     * @return void
+     */
+    public static function runSync(FirebirdSync $sync, string $operation, ?string $ciclo, bool $deleteOrphans, array $tables, bool $skipExisting): void
+    {
+        $job = new self($sync, $operation, $ciclo, $deleteOrphans, $tables, $skipExisting);
+        $job->handle();
+    }
+
     protected function run(): void
     {
         Log::info('FirebirdSyncJob started', [

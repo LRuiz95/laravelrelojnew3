@@ -333,12 +333,12 @@ class ZktecoService
     }
 
     /**
-     * Descarga los usuarios del checador y los concilia con el catálogo
-     * central:
+     * Descarga los usuarios del checador y los vincula con el catálogo
+     * central (fuente de verdad: Firebird EMPLEADOS → MySQL employees):
      * - Match por user_id (PIN/badge), la clave unificadora global.
-     * - Si no existe en el catálogo, firstOrCreate.
-     * - Vinculación por pivote con syncWithoutDetaching-like: attach si es
-     *   nuevo enrolamiento, updateExistingPivot si ya estaba (touch al padre).
+     * - Si no existe en el catálogo, se omite (no crea empleados fantasma).
+     * - Vinculación por pivote: attach si es nuevo enrolamiento,
+     *   updateExistingPivot si ya estaba (touch al padre).
      * La metadata de hardware (device_uid/role/card_number/password) vive en
      * device_employee, nunca en employees.
      */
@@ -359,15 +359,22 @@ class ZktecoService
             $userId = (string) $user['user_id'];
             $name = (string) $user['name'];
 
-            $employee = Employee::firstOrCreate(
-                ['user_id' => $userId],
-                ['name' => $name]
-            );
+            $employee = Employee::where('user_id', $userId)->first();
+
+            if (! $employee) {
+                Log::warning("ZKTeco syncUsers: empleado {$userId} ({$name}) no existe en catálogo central. Se omite.", [
+                    'device' => $this->device->ip,
+                ]);
+                if ($onProgress) {
+                    $onProgress($index + 1, $total);
+                }
+                continue;
+            }
 
             // Último dispositivo sincronizado gana: mantiene el nombre del
             // catálogo alineado con el checador más reciente (paridad con el
             // comportamiento previo a la refactorización).
-            if (! $employee->wasRecentlyCreated && $employee->name !== $name) {
+            if ($employee->name !== $name) {
                 $employee->update(['name' => $name]);
             }
 

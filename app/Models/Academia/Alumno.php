@@ -155,6 +155,13 @@ class Alumno extends Model
         );
     }
 
+    protected function turnoBase(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): ?string => $this->turno ? strtoupper(substr(trim($this->turno), 0, 1)) : null,
+        );
+    }
+
     protected function edad(): Attribute
     {
         return Attribute::make(

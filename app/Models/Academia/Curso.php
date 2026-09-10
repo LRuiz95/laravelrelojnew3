@@ -21,6 +21,7 @@ class Curso extends Model
         'final',
         'periodo',
         'clave_curso',
+        'codigo_grupo',
         'nombre_curso',
         'nivel',
         'turno',
@@ -57,6 +58,16 @@ class Curso extends Model
         return $this->belongsTo(Sede::class, 'id_campus', 'id_campus');
     }
 
+    public function nivelRel(): BelongsTo
+    {
+        return $this->belongsTo(Nivel::class, 'nivel', 'nivel');
+    }
+
+    public function turnoRel(): BelongsTo
+    {
+        return $this->belongsTo(Turno::class, 'turno', 'turno');
+    }
+
     public function materias(): HasMany
     {
         return $this->hasMany(CursoDet::class, 'curso_id', 'id');
@@ -83,6 +94,17 @@ class Curso extends Model
     {
         return Attribute::make(
             get: fn () => "{$this->inicial}-{$this->final}-{$this->periodo}",
+        );
+    }
+
+    protected function turnoNombre(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): string => match ($this->turno ? strtoupper(substr(trim($this->turno), 0, 1)) : null) {
+                'M' => 'Matutino',
+                'V' => 'Vespertino',
+                default => $this->turno ?: 'Sin turno',
+            },
         );
     }
 }

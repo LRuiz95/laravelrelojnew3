@@ -55,6 +55,7 @@ class CycleDirectSync implements SyncStrategyInterface
             'CODIGO_CURSO' => 'clave_curso',
             'DESCRIPCION'  => 'nombre_curso',
             'CODIGO_GRUPO' => 'codigo_grupo',
+            'NIVEL'        => 'nivel',
         ],
         'CURSOS_DET' => [
             'CODIGO_CURSO' => 'curso_id',    // Resolved via COMPOSITE_FK_RESOLVE
@@ -152,8 +153,8 @@ class CycleDirectSync implements SyncStrategyInterface
         FirebirdSync $sync,
         ?string $ciclo,
         bool $deleteOrphans,
-        array $tables = [],
-        bool $skipExisting = true,
+        array $tables,
+        bool $skipExisting,
         callable $progressCallback
     ): array {
         // Filtrar tablas si se proporcionan (usar variables locales, no modificar constantes)
@@ -255,7 +256,7 @@ class CycleDirectSync implements SyncStrategyInterface
         string $tabla,
         int $I, int $F, int $P,
         bool $deleteOrphans,
-        bool $skipExisting = true
+        bool $skipExisting = false
     ): array {
         $log = [];
         $errors = [];

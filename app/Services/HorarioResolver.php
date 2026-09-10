@@ -9,7 +9,7 @@ use App\Models\Academia\SesionBase;
 use App\Models\Academia\Grupo;
 use App\Models\Academia\Profesor;
 use App\Models\Academia\Materia;
-use App\Models\Academia\AlumnoKardex;
+use App\Models\Academia\DocenteAsistencia;
 use App\Models\Academia\Alumno;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -27,10 +27,12 @@ class HorarioResolver
         string $nivel,
         string $turno,
         int $dia,
-        string $fechaClase
+        string $fechaClase,
+        ?string $sede = null,
+        ?string $edificio = null
     ): array {
         $horarios = HorarioDet::with([
-            'grupo', 'profesor', 'materia', 'sede', 'sesionBase'
+            'grupo', 'profesor', 'materia', 'sede'
         ])
             ->join('grupos', function ($join) {
                 $join->on('horarios_det.codigo_grupo', '=', 'grupos.codigo_grupo')
@@ -42,26 +44,37 @@ class HorarioResolver
             ->where('horarios_det.final', $final)
             ->where('horarios_det.periodo', $periodo)
             ->where('grupos.nivel', $nivel)
-            ->where('grupos.turno', $turno)
+            ->whereRaw('UPPER(grupos.turno) LIKE ?', [strtoupper(substr($turno, 0, 1)) . '%'])
             ->where('horarios_det.dia', $dia)
             ->where('horarios_det.activo', true)
+            ->when($sede, fn ($query) => $query->where('horarios_det.id_campus', $sede))
+            ->when($edificio, fn ($query) => $query->where('horarios_det.edificio', $edificio))
+            ->orderBy('horarios_det.id_campus')
+            ->orderBy('horarios_det.edificio')
             ->orderBy('horarios_det.sesion')
+            ->orderBy('horarios_det.aula')
             ->get();
 
-        return $horarios->map(function (HorarioDet $h) use ($fechaClase) {
-            $primerAlumno = DB::table('alumnos_grupos')
-                ->where('codigo_grupo', $h->codigo_grupo)
-                ->where('inicial', $h->inicial)
-                ->where('final', $h->final)
-                ->where('periodo', $h->periodo)
-                ->value('numero_alumno');
+        $alumnosPorGrupo = DB::table('alumnos_grupos')
+            ->where('inicial', $inicial)
+            ->where('final', $final)
+            ->where('periodo', $periodo)
+            ->where('estatus', 'INSCRITO')
+            ->select('codigo_grupo')
+            ->selectRaw('COUNT(*) as total')
+            ->groupBy('codigo_grupo')
+            ->pluck('total', 'codigo_grupo');
 
-            $asistencia = AlumnoKardex::where('numero_alumno', $primerAlumno ?? 0)
+        return $horarios->map(function (HorarioDet $h) use ($fechaClase, $alumnosPorGrupo) {
+            $asistencia = DocenteAsistencia::where('codigo_grupo', $h->codigo_grupo)
+                ->where('clave_profesor', $h->clave_profesor)
+                ->where('clave_asignatura', $h->clave_asignatura)
                 ->where('inicial', $h->inicial)
                 ->where('final', $h->final)
                 ->where('periodo', $h->periodo)
-                ->where('clave_asignatura', $h->clave_asignatura)
-                ->where('id_eval', 'ASISTENCIA')
+                ->where('dia', $h->dia)
+                ->where('sesion', $h->sesion)
+                ->whereDate('fecha', $fechaClase)
                 ->first();
 
             return [
@@ -69,11 +82,13 @@ class HorarioResolver
                 'FINAL' => $h->final,
                 'PERIODO' => $h->periodo,
                 'CODIGO_GRUPO' => $h->codigo_grupo,
+                'ALUMNOS_TOTAL' => (int) ($alumnosPorGrupo[$h->codigo_grupo] ?? $h->grupo?->inscritos ?? 0),
                 'CLAVEPROFESOR' => $h->clave_profesor,
                 'CLAVEASIGNATURA' => $h->clave_asignatura,
                 'DIA' => $h->dia,
                 'SESION' => $h->sesion,
                 'ID_CAMPUS' => $h->id_campus,
+                'SEDE_NOMBRE' => $h->sede?->descripcion,
                 'EDIFICIO' => $h->edificio,
                 'AULA' => $h->aula,
                 'NOMBREPROFESOR' => $h->profesor?->nombre_completo,
@@ -84,7 +99,7 @@ class HorarioResolver
                 'SESION_INI' => $h->sesionBase?->hora_inicio?->format('H:i'),
                 'SESION_FIN' => $h->sesionBase?->hora_fin?->format('H:i'),
                 'RECESO' => $h->sesionBase?->receso ? 'S' : 'N',
-                'ASISTENCIA_ESTADO' => $asistencia?->literal,
+                'ASISTENCIA_ESTADO' => $asistencia?->estado,
                 'ASISTENCIA_OBS' => $asistencia?->observaciones,
                 'CAPTURADO_POR' => null,
                 'CAPTURADO_EN' => null,
@@ -103,7 +118,9 @@ class HorarioResolver
         string $nivel,
         string $turno,
         int $dia,
-        string $fechaClase
+        string $fechaClase,
+        ?string $sede = null,
+        ?string $edificio = null
     ): array {
         $defaults = [
             'total_clases' => 0,
@@ -121,27 +138,33 @@ class HorarioResolver
                     ->on('h.final', '=', 'g.final')
                     ->on('h.periodo', '=', 'g.periodo');
             })
-            ->leftJoin('alumnos_kardex as ca', function ($join) use ($fechaClase) {
-                $join->on('h.clave_asignatura', '=', 'ca.clave_asignatura')
+            ->leftJoin('docentes_asistencias as ca', function ($join) use ($fechaClase) {
+                $join->on('h.codigo_grupo', '=', 'ca.codigo_grupo')
+                    ->on('h.clave_profesor', '=', 'ca.clave_profesor')
+                    ->on('h.clave_asignatura', '=', 'ca.clave_asignatura')
                     ->on('h.inicial', '=', 'ca.inicial')
                     ->on('h.final', '=', 'ca.final')
                     ->on('h.periodo', '=', 'ca.periodo')
-                    ->where('ca.id_eval', 'ASISTENCIA');
+                    ->on('h.dia', '=', 'ca.dia')
+                    ->on('h.sesion', '=', 'ca.sesion')
+                    ->whereDate('ca.fecha', $fechaClase);
             })
             ->where('h.inicial', $inicial)
             ->where('h.final', $final)
             ->where('h.periodo', $periodo)
             ->where('g.nivel', $nivel)
-            ->where('g.turno', $turno)
+            ->whereRaw('UPPER(g.turno) LIKE ?', [strtoupper(substr($turno, 0, 1)) . '%'])
             ->where('h.dia', $dia)
             ->where('h.activo', true)
+            ->when($sede, fn ($query) => $query->where('h.id_campus', $sede))
+            ->when($edificio, fn ($query) => $query->where('h.edificio', $edificio))
             ->selectRaw('
                 COUNT(*) as total_clases,
-                SUM(CASE WHEN ca.literal IS NOT NULL AND ca.literal != "SIN_CAPTURA" THEN 1 ELSE 0 END) as capturadas,
-                SUM(CASE WHEN ca.literal = "PRESENTE" THEN 1 ELSE 0 END) as presentes,
-                SUM(CASE WHEN ca.literal = "AUSENTE" THEN 1 ELSE 0 END) as ausentes,
-                SUM(CASE WHEN ca.literal = "RETARDO" THEN 1 ELSE 0 END) as retardos,
-                SUM(CASE WHEN ca.literal = "JUSTIFICADO" THEN 1 ELSE 0 END) as justificados
+                SUM(CASE WHEN ca.estado IS NOT NULL THEN 1 ELSE 0 END) as capturadas,
+                SUM(CASE WHEN ca.estado = "PRESENTE" THEN 1 ELSE 0 END) as presentes,
+                SUM(CASE WHEN ca.estado = "AUSENTE" THEN 1 ELSE 0 END) as ausentes,
+                SUM(CASE WHEN ca.estado = "RETARDO" THEN 1 ELSE 0 END) as retardos,
+                SUM(CASE WHEN ca.estado = "JUSTIFICADO" THEN 1 ELSE 0 END) as justificados
             ')
             ->first();
 
@@ -225,7 +248,7 @@ class HorarioResolver
      */
     public function getHorarioProfesor(string $claveProfesor, int $inicial, int $final, int $periodo): Collection
     {
-        return HorarioDet::with(['grupo', 'materia', 'sede', 'sesionBase'])
+        return HorarioDet::with(['grupo', 'materia', 'sede'])
             ->where('clave_profesor', $claveProfesor)
             ->where('inicial', $inicial)
             ->where('final', $final)

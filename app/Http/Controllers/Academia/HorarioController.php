@@ -35,9 +35,34 @@ class HorarioController extends Controller
         $turno = $request->get('turno');
         $dia = (int)($request->get('dia', now()->dayOfWeekIso));
         $fecha = $request->get('fecha', now()->toDateString());
+        $sede = $request->get('sede');
+        $edificio = $request->get('edificio');
 
         $niveles = \App\Models\Academia\Nivel::activo()->get();
         $turnos = \App\Models\Academia\Turno::activo()->get();
+        $sedes = Sede::activo()->orderBy('descripcion')->get();
+        $edificios = collect();
+
+        if ($nivel && $turno) {
+            $edificios = HorarioDet::query()
+                ->where('horarios_det.inicial', $ciclo->inicial)
+                ->where('horarios_det.final', $ciclo->final)
+                ->where('horarios_det.periodo', $ciclo->periodo)
+                ->where('horarios_det.activo', true)
+                ->whereNotNull('horarios_det.edificio')
+                ->when($sede, fn ($query) => $query->where('horarios_det.id_campus', $sede))
+                ->join('grupos as g', function ($join) {
+                    $join->on('horarios_det.codigo_grupo', '=', 'g.codigo_grupo')
+                        ->on('horarios_det.inicial', '=', 'g.inicial')
+                        ->on('horarios_det.final', '=', 'g.final')
+                        ->on('horarios_det.periodo', '=', 'g.periodo');
+                })
+                ->where('g.nivel', $nivel)
+                ->whereRaw('UPPER(g.turno) LIKE ?', [strtoupper(substr($turno, 0, 1)) . '%'])
+                ->distinct()
+                ->orderBy('horarios_det.edificio')
+                ->pluck('horarios_det.edificio');
+        }
 
         $horarios = [];
         $stats = ['total_clases'=>0,'capturadas'=>0,'presentes'=>0,'ausentes'=>0,'retardos'=>0,'justificados'=>0];
@@ -45,11 +70,11 @@ class HorarioController extends Controller
         if ($nivel && $turno) {
             $horarios = $this->horarioResolver->getClaseAsistenciaGrid(
                 $ciclo->inicial, $ciclo->final, $ciclo->periodo,
-                $nivel, $turno, $dia, $fecha
+                $nivel, $turno, $dia, $fecha, $sede, $edificio
             );
             $stats = $this->horarioResolver->getClaseAsistenciaStats(
                 $ciclo->inicial, $ciclo->final, $ciclo->periodo,
-                $nivel, $turno, $dia, $fecha
+                $nivel, $turno, $dia, $fecha, $sede, $edificio
             );
         }
 
@@ -59,7 +84,9 @@ class HorarioController extends Controller
             'turnos' => $turnos,
             'horarios' => $horarios,
             'stats' => $stats,
-            'filtros' => compact('nivel', 'turno', 'dia', 'fecha'),
+            'sedes' => $sedes,
+            'edificios' => $edificios,
+            'filtros' => compact('nivel', 'turno', 'dia', 'fecha', 'sede', 'edificio'),
             'diasSemana' => [
                 1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles',
                 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'

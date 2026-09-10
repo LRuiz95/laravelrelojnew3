@@ -96,15 +96,9 @@ class HorarioDet extends Model
         return $this->belongsTo(Sede::class, 'id_campus', 'id_campus');
     }
 
-    /**
-     * NO usar relación sesionBase() en HorarioDet — usa HorarioResolver::getHorarioBase()
-     * en su lugar, ya que la subquery con whereRaw referencia horarios_det por nombre fijo
-     * y falla en eager loading por alias de tabla.
-     */
-    public function sesionBase(): ?SesionBase
+    public function sesionBase(): BelongsTo
     {
-        // Placeholder — no usar. Usar HorarioResolver::getHorarioBase($this->inicial, $this->final, $this->periodo)
-        return null;
+        return $this->belongsTo(SesionBase::class, 'sesion', 'sesion');
     }
 
     public function scopeActivo($query)

@@ -7,8 +7,8 @@
     <div>
         <h1 class="h3 mb-1">{{ $curso->nombre_curso }}</h1>
         <p class="text-muted mb-0">
-            {{ $curso->clave_curso }} | {{ $curso->nivel }} · {{ $curso->turno }}
-            <span class="ms-2 badge bg-secondary">{{ $curso->materias_count }} materias</span>
+            {{ $curso->clave_curso }} | {{ $curso->nombre_curso }} · {{ $curso->nivelRel?->descripcion ?? $curso->nivel }} · {{ $curso->turno_nombre }} · {{ $curso->sede?->descripcion ?? $curso->id_campus }}
+            <span class="ms-2 badge bg-secondary">{{ $alumnos->count() }} alumnos</span>
         </p>
     </div>
     <div class="btn-group btn-group-sm">
@@ -20,7 +20,10 @@
 
 {{-- KPIs --}}
 <div class="kpi-grid mb-4">
-    <x-stat-card :icon="'bi-book'" :label="'Materias'" :value="$curso->materias_count" :color="'blue'">
+    <x-stat-card :icon="'bi-book'" :label="'Materia'" :value="$materia?->nombre_asignatura ?? 'No asignada'" :color="'blue'">
+        <div class="kpi-trend flat">–</div>
+    </x-stat-card>
+    <x-stat-card :icon="'bi-person-badge'" :label="'Maestros'" :value="$docentes->count()" :color="'green'">
         <div class="kpi-trend flat">–</div>
     </x-stat-card>
     <x-stat-card :icon="'bi-clock'" :label="'Horas Teoría'" :value="$curso->materias->sum('horas_teoria')" :color="'purple'">
@@ -37,16 +40,14 @@
 {{-- Materias --}}
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-bold">Materias del Plan</span>
-        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAgregarMateria">
-            <i class="bi bi-plus-lg me-1"></i> Agregar Materia
-        </button>
+        <span class="fw-bold">Materia del curso</span>
+        <span class="badge bg-secondary">{{ $materia?->clave_asignatura ?? 'Sin clave' }}</span>
     </div>
     <div class="card-body p-0">
-        @if ($materias->isEmpty())
+        @if (! $materia)
             <div class="card-body text-center text-muted py-5">
                 <i class="bi bi-book fs-1 mb-2"></i>
-                <p>No hay materias asignadas a este curso</p>
+                <p>No hay una materia asignada a este curso</p>
             </div>
         @else
             <div class="table-responsive">
@@ -65,14 +66,23 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($materias as $m)
+                        @php
+                            $m = $materias->first();
+                        @endphp
                             <tr>
                                 <td class="fw-semibold">{{ $m->clave_asignatura }}</td>
-                                <td>{{ $m->materia->nombre_asignatura }}</td>
+                                <td>
+                                    @if ($m->materia)
+                                        {{ $m->materia->nombre_asignatura }}
+                                    @else
+                                        <span class="text-warning">Materia no encontrada</span>
+                                        <small class="d-block text-muted">Verificar catálogo de materias</small>
+                                    @endif
+                                </td>
                                 <td>{{ $m->semestre ?? '—' }}</td>
                                 <td class="text-center">{{ $m->horas_teoria }}</td>
                                 <td class="text-center">{{ $m->horas_practica }}</td>
-                                <td class="text-center">{{ $m->creditos }}</td>
+                                <td class="text-center">{{ $m->materia?->creditos ?? '—' }}</td>
                                 <td>
                                     <span class="badge {{ $m->tipo === 'obligatoria' ? 'bg-primary' : 'bg-secondary' }}">
                                         {{ $m->tipo }}
@@ -90,6 +100,73 @@
                                         </button>
                                     </div>
                                 </td>
+                            </tr>
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header fw-bold">Maestro(s) asignado(s)</div>
+    <div class="card-body">
+        @forelse ($docentes as $docente)
+            <span class="badge bg-light text-dark border me-2 mb-2">{{ $docente->nombre_completo ?: $docente->clave_profesor }}</span>
+        @empty
+            <span class="text-muted">No hay maestro asignado en los horarios de esta materia.</span>
+        @endforelse
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">Alumnos inscritos en el curso</span>
+        <span class="badge bg-secondary">{{ $alumnos->count() }} alumnos</span>
+    </div>
+    <div class="card-body p-0">
+        @if ($alumnos->isEmpty())
+            <div class="card-body text-center text-muted py-5">
+                <i class="bi bi-people fs-1 mb-2"></i>
+                <p>No hay alumnos inscritos en grupos que cursen esta materia.</p>
+            </div>
+        @else
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Matrícula</th>
+                            <th>Alumno</th>
+                            <th>Nivel / Carrera</th>
+                            <th>Turno</th>
+                            <th>Sede</th>
+                            <th>Grupo</th>
+                            <th>Contacto</th>
+                            <th>Estatus</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($alumnos as $alumno)
+                            <tr>
+                                <td class="fw-semibold">{{ $alumno->numero_alumno }}</td>
+                                <td>
+                                    <div class="fw-semibold">{{ $alumno->nombre_completo }}</div>
+                                    <small class="text-muted">CURP: {{ $alumno->curp ?: 'No registrada' }}</small>
+                                </td>
+                                <td>
+                                    <div>{{ $alumno->nivelRel?->descripcion ?? $alumno->nivel ?? '—' }}</div>
+                                    <small class="text-muted">{{ $alumno->carrera ?: 'Carrera no registrada' }}</small>
+                                </td>
+                                <td>{{ $alumno->turno_base ? ($alumno->turno_base === 'M' ? 'Matutino' : 'Vespertino') : ($alumno->turno ?: '—') }}</td>
+                                <td>{{ $alumno->sede?->descripcion ?? $alumno->id_campus ?? '—' }}</td>
+                                <td>{{ $alumno->curso_codigo_grupo }}</td>
+                                <td class="small">
+                                    <div>{{ $alumno->telefono ?: 'Sin teléfono' }}</div>
+                                    <div class="text-muted">{{ $alumno->email ?: 'Sin correo' }}</div>
+                                </td>
+                                <td><span class="badge badge--status {{ $alumno->estatus === 'ACTIVO' ? 'badge--active' : 'badge--inactive' }}">{{ $alumno->estatus ?: '—' }}</span></td>
+                                <td class="text-end"><a href="{{ route('academia.alumnos.show', $alumno) }}" class="btn btn-sm btn-outline-primary">Ver</a></td>
                             </tr>
                         @endforeach
                     </tbody>

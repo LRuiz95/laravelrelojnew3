@@ -60,6 +60,7 @@
                         <th>Nivel</th>
                         <th>Turno</th>
                         <th>Grado</th>
+                        <th>Modalidad</th>
                         <th>Inscritos</th>
                         <th>Sede</th>
                         <th>Estado</th>
@@ -70,13 +71,17 @@
                     @foreach ($grupos as $grupo)
                         <tr>
                             <td class="fw-semibold">{{ $grupo->codigo_grupo }}</td>
-                            <td>{{ $grupo->nivel }}</td>
+                            <td>{{ $grupo->nivelRel?->descripcion ?? $grupo->nivel }}</td>
                             <td>
-                                <span class="badge {{ $grupo->turnoRel && str_starts_with($grupo->turnoRel->descripcion_corta, 'V') ? 'bg-purple' : 'bg-warning' }}">
-                                    {{ $grupo->turnoRel?->descripcion_corta ?? $grupo->turno }}
-                                </span>
+                                {{ $grupo->turno_nombre }}
                             </td>
                             <td>{{ $grupo->grado }}°</td>
+                            <td>
+                                {{ $grupo->modalidad_nombre }}
+                                @if ($grupo->codigo_grupo_partes['nivel_superior'])
+                                    <small class="d-block text-muted">Ingeniería/Licenciatura</small>
+                                @endif
+                            </td>
                             <td>{{ $grupo->inscritos }}</td>
                             <td>{{ $grupo->sede?->descripcion ?? $grupo->id_campus }}</td>
                             <td>

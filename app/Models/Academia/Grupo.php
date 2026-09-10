@@ -144,7 +144,71 @@ class Grupo extends Model
 
     public function scopePorNivelTurno($query, string $nivel, string $turno)
     {
-        return $query->where('nivel', $nivel)->where('turno', $turno);
+        return $query->where('nivel', $nivel)
+            ->whereRaw('UPPER(turno) LIKE ?', [strtoupper(substr($turno, 0, 1)) . '%']);
+    }
+
+    /**
+     * Descompone el código académico, por ejemplo 24MTC-1-I-1B-3C.
+     */
+    protected function codigoGrupoPartes(): Attribute
+    {
+        return Attribute::make(
+            get: function (): array {
+                $partes = explode('-', strtoupper(trim((string) $this->codigo_grupo)));
+                $cabecera = array_shift($partes) ?? '';
+                $resultado = [
+                    'anio_plan' => null,
+                    'nivel' => null,
+                    'sede' => $partes[0] ?? null,
+                    'modelo' => $partes[1] ?? null,
+                    'grado_grupo' => $partes[2] ?? null,
+                    'nivel_superior' => null,
+                ];
+
+                if (preg_match('/^(\d{2})([A-Z]+)$/', $cabecera, $coincidencias)) {
+                    $resultado['anio_plan'] = (int) $coincidencias[1];
+                    $resultado['nivel'] = $coincidencias[2];
+                }
+
+                if (isset($partes[3]) && strtoupper($partes[3]) === '3C') {
+                    $resultado['nivel_superior'] = '3C';
+                }
+
+                return $resultado;
+            },
+        );
+    }
+
+    protected function turnoBase(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): ?string => $this->turno ? strtoupper(substr(trim($this->turno), 0, 1)) : null,
+        );
+    }
+
+    protected function turnoNombre(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): string => match ($this->turno_base) {
+                'M' => 'Matutino',
+                'V' => 'Vespertino',
+                default => $this->turno ?: 'Sin turno',
+            },
+        );
+    }
+
+    protected function modalidadNombre(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): string => match ($this->codigo_grupo_partes['modelo'] ?? null) {
+                'B' => 'Bilingüe',
+                'D' => 'Despresurizado',
+                'I' => 'Intensivo',
+                'M' => 'Mixto',
+                default => 'Tradicional',
+            },
+        );
     }
 
     protected function label(): Attribute

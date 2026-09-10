@@ -66,8 +66,8 @@ class CustomSyncStrategy implements SyncStrategyInterface
         FirebirdSync $sync,
         ?string $ciclo,
         bool $deleteOrphans,
-        array $tables = [],
-        bool $skipExisting = true,
+            array $tables,
+            bool $skipExisting,
         callable $progressCallback
     ): array {
         if (empty($tables)) {

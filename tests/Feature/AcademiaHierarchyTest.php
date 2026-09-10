@@ -161,6 +161,24 @@ class AcademiaHierarchyTest extends TestCase
         $this->assertEquals('INSCRITO', $first->estatus);
     }
 
+    public function test_grupo_codigo_y_turno_se_normalizan(): void
+    {
+        $grupo = new Grupo([
+            'codigo_grupo' => '24MTC-1-I-1B-3C',
+            'turno' => 'V2',
+        ]);
+
+        $this->assertSame([
+            'anio_plan' => 24,
+            'nivel' => 'MTC',
+            'sede' => '1',
+            'modelo' => 'I',
+            'grado_grupo' => '1B',
+            'nivel_superior' => '3C',
+        ], $grupo->codigo_grupo_partes);
+        $this->assertSame('V', $grupo->turno_base);
+    }
+
     // ── Controllers (HTTP tests) ──────────────────────────────────
 
     public function test_alumno_controller_index(): void

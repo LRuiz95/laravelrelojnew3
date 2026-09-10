@@ -143,6 +143,8 @@ class CatalogSmartSync implements SyncStrategyInterface
                 'periodo'      => 'PERIODO',
                 'clave_curso'  => 'CODIGO_CURSO',
                 'nombre_curso' => 'DESCRIPCION',
+                'codigo_grupo' => 'CODIGO_GRUPO',
+                'nivel'        => 'NIVEL',
                 'turno'        => 'TURNO',
                 'id_campus'    => 'ID_CAMPUS',
             ],
@@ -259,8 +261,8 @@ class CatalogSmartSync implements SyncStrategyInterface
         FirebirdSync $sync,
         ?string $ciclo,
         bool $deleteOrphans,
-        array $tables = [],
-        bool $skipExisting = true,
+        array $tables,
+        bool $skipExisting,
         callable $progressCallback
     ): array {
         $log = [];

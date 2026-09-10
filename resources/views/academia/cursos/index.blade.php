@@ -25,11 +25,13 @@
                     <thead>
                         <tr>
                             <th>Clave</th>
-                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Materia</th>
+                            <th>Maestro(s)</th>
                             <th>Nivel</th>
                             <th>Turno</th>
                             <th>Sede</th>
-                            <th class="text-center">Materias</th>
+                            <th class="text-center">Alumnos</th>
                             <th>Estado</th>
                             <th class="text-end">Acciones</th>
                         </tr>
@@ -39,11 +41,19 @@
                             <tr>
                                 <td class="fw-semibold">{{ $c->clave_curso }}</td>
                                 <td>{{ $c->nombre_curso }}</td>
-                                <td>{{ $c->nivel }}</td>
-                                <td>{{ $c->turno }}</td>
+                                <td>{{ $c->materias->first()?->materia?->nombre_asignatura ?? 'Materia no asignada' }}</td>
+                                <td class="small">
+                                    @forelse ($c->docentes as $docente)
+                                        <div>{{ $docente->nombre_completo ?: $docente->clave_profesor }}</div>
+                                    @empty
+                                        <span class="text-muted">Sin maestro asignado</span>
+                                    @endforelse
+                                </td>
+                                <td>{{ $c->nivelRel?->descripcion ?? $c->nivel }}</td>
+                                <td>{{ $c->turno_nombre }}</td>
                                 <td>{{ $c->sede?->descripcion ?? $c->id_campus }}</td>
                                 <td class="text-center">
-                                    <span class="badge bg-secondary">{{ $c->materias_count }}</span>
+                                    <span class="badge bg-secondary">{{ $c->alumnos_count }}</span>
                                 </td>
                                 <td>
                                     <span class="badge badge--status {{ $c->activo ? 'badge--active' : 'badge--inactive' }}">

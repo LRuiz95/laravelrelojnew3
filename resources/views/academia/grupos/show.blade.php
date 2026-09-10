@@ -7,10 +7,19 @@
     <div>
         <h1 class="h3 mb-1">{{ $grupo->codigo_grupo }}</h1>
         <p class="text-muted mb-0">
-            {{ $grupo->grado }}° · {{ $grupo->turnoRel?->descripcion ?? $grupo->turno }} · {{ $grupo->nivel }}
+            {{ $grupo->grado }}° · {{ $grupo->turno_nombre }} · {{ $grupo->nivelRel?->descripcion ?? $grupo->nivel }} · {{ $grupo->modalidad_nombre }}
             <span class="ms-2 badge bg-secondary">{{ $grupo->inscritos }} inscritos</span>
             <span class="ms-1 badge bg-secondary">{{ $grupo->sede?->descripcion }}</span>
         </p>
+        @php
+            $partesCodigo = $grupo->codigo_grupo_partes;
+        @endphp
+        <small class="text-muted">
+            Plan {{ $partesCodigo['anio_plan'] ?? '—' }} · Nivel {{ $partesCodigo['nivel'] ?? $grupo->nivel }} ·
+            Sede código {{ $partesCodigo['sede'] ?? '—' }} · Modelo {{ $partesCodigo['modelo'] ?? '—' }} ·
+            Grado/grupo {{ $partesCodigo['grado_grupo'] ?? '—' }}
+            @if ($partesCodigo['nivel_superior']) · Ingeniería/Licenciatura ({{ $partesCodigo['nivel_superior'] }}) @endif
+        </small>
     </div>
     <div class="btn-group btn-group-sm">
         <a href="{{ route('academia.grupos.asistencia', $grupo) }}" class="btn btn-success">
@@ -35,10 +44,12 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>Control</th>
+                                <th>Matrícula</th>
                                 <th>Nombre</th>
-                                <th>CURP</th>
-                                <th>Estatus</th>
+                                <th>Nivel / Carrera</th>
+                                <th>Contacto</th>
+                                <th>Estatus académico</th>
+                                <th>Estatus en grupo</th>
                                 <th>Inscripción</th>
                                 <th class="text-end">Acciones</th>
                             </tr>
@@ -47,8 +58,27 @@
                             @foreach ($alumnos as $alumnoGrupo)
                                 <tr>
                                     <td class="fw-semibold">{{ $alumnoGrupo->numero_alumno }}</td>
-                                    <td>{{ $alumnoGrupo->nombre_completo }}</td>
-                                    <td class="small">{{ $alumnoGrupo->curp }}</td>
+                                    <td>
+                                        <div class="fw-semibold">{{ $alumnoGrupo->nombre_completo }}</div>
+                                        <small class="text-muted">CURP: {{ $alumnoGrupo->curp ?: 'No registrada' }}</small>
+                                    </td>
+                                    <td>
+                                        <div>{{ $alumnoGrupo->nivelRel?->descripcion ?? $alumnoGrupo->nivel ?? '—' }}</div>
+                                        <small class="text-muted">{{ $alumnoGrupo->carrera ?: 'Carrera no registrada' }}</small>
+                                    </td>
+                                    <td class="small">
+                                        <div>{{ $alumnoGrupo->telefono ?: 'Sin teléfono' }}</div>
+                                        <div class="text-muted">{{ $alumnoGrupo->email ?: 'Sin correo' }}</div>
+                                    </td>
+                                    <td>
+                                        @php
+                                            $estatusAcademico = strtoupper((string) $alumnoGrupo->estatus);
+                                            $estatusAcademicoClase = $estatusAcademico === 'ACTIVO' ? 'badge--active' : 'badge--inactive';
+                                        @endphp
+                                        <span class="badge badge--status {{ $estatusAcademicoClase }}">
+                                            {{ $alumnoGrupo->estatus ?: '—' }}
+                                        </span>
+                                    </td>
                                     <td>
                                         <span class="badge badge--status {{ ($alumnoGrupo->pivot_estatus ?? null) === 'INSCRITO' ? 'badge--active' : 'badge--inactive' }}">
                                             {{ $alumnoGrupo->pivot_estatus ?? '—' }}

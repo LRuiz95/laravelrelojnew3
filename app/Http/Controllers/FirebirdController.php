@@ -59,6 +59,7 @@ class FirebirdController extends Controller
             ],
             'alumnos' => [
                 'Datos de Alumnos' => [
+                    ['fb' => 'ALUMNOS', 'mysql' => 'alumnos', 'recommended' => true],
                     ['fb' => 'ALUMNOS_NIVELES', 'mysql' => 'alumnos_niveles', 'recommended' => true],
                 ],
             ],
@@ -108,7 +109,7 @@ class FirebirdController extends Controller
         $ciclo = $request->input('ciclo');
         $tables = $request->input('tables', []);
         $deleteOrphans = $request->boolean('delete_orphans', false);
-        $skipExisting = $request->boolean('skip_existing', true);
+        $skipExisting = $request->boolean('skip_existing', false);
 
         // Validate FK dependencies for custom sync
         $depWarnings = [];

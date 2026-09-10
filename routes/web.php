@@ -48,7 +48,9 @@ Route::middleware('auth')->group(function () {
         Route::get('alumnos/{alumno}/historial', [AcademiaAlumnoController::class, 'historial'])->name('alumnos.historial');
 
         // Profesores
-        Route::resource('profesores', AcademiaProfesorController::class)->only(['index', 'show']);
+        Route::resource('profesores', AcademiaProfesorController::class)
+            ->only(['index', 'show'])
+            ->parameters(['profesores' => 'profesor']);
         Route::get('profesores/{profesor}/horario', [AcademiaProfesorController::class, 'horario'])->name('profesores.horario');
 
         // Horarios
@@ -74,7 +76,9 @@ Route::middleware('auth')->group(function () {
         Route::delete('cursos/{curso}/materia/{materia}', [AcademiaCursoController::class, 'removeMateria'])->name('cursos.materia.remove');
 
         // Planes
-        Route::resource('planes', AcademiaPlanController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update', 'destroy']);
+        Route::resource('planes', AcademiaPlanController::class)
+            ->only(['index', 'show', 'create', 'store', 'edit', 'update', 'destroy'])
+            ->parameters(['planes' => 'plan']);
     });
 
     // API Routes for AJAX

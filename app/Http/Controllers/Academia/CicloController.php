@@ -25,11 +25,17 @@ class CicloController extends Controller
 
     public function index(Request $request): View
     {
-        $ciclos = Ciclo::withCount(['grupos', 'horarios', 'cursos'])
+        $ciclos = Ciclo::query()
             ->latest('inicial')
             ->latest('final')
             ->latest('periodo')
             ->paginate(20);
+
+        foreach ($ciclos as $ciclo) {
+            $ciclo->setAttribute('grupos_count', Grupo::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)->count());
+            $ciclo->setAttribute('horarios_count', HorarioDet::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)->count());
+            $ciclo->setAttribute('cursos_count', Curso::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)->count());
+        }
 
         return view('academia.ciclos.index', [
             'ciclo' => $this->cicloService->resolve($request),
@@ -39,18 +45,16 @@ class CicloController extends Controller
 
     public function show(Request $request, Ciclo $ciclo): View
     {
-        $ciclo->loadCount(['grupos', 'horarios', 'cursos', 'alumnos']);
-        
         // Estadísticas del ciclo
         $stats = [
-            'grupos' => $ciclo->grupos_count,
+            'grupos' => Grupo::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)->count(),
             'alumnos' => \App\Models\Academia\Alumno::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)->activo()->count(),
             'profesores' => \App\Models\Academia\Profesor::whereHas('horarios', fn ($q) => $q->where('inicial', $ciclo->inicial)
                 ->where('final', $ciclo->final)
                 ->where('periodo', $ciclo->periodo)
                 ->where('activo', true))->count(),
-            'horarios' => $ciclo->horarios_count,
-            'cursos' => $ciclo->cursos_count,
+            'horarios' => HorarioDet::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)->count(),
+            'cursos' => Curso::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)->count(),
         ];
 
         // Grupos por nivel/turno

@@ -27,7 +27,7 @@ class FirebirdSyncJob implements ShouldQueue
         public ?string $ciclo = null,
         public bool $deleteOrphans = false,
         public array $tables = [], // lista de tablas FB para sync_custom
-        public bool $skipExisting = true,
+        public bool $skipExisting = false,
     ) {}
 
     public function backoff(): array

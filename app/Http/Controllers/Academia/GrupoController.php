@@ -9,11 +9,13 @@ use App\Models\Academia\Ciclo;
 use App\Models\Academia\Grupo;
 use App\Models\Academia\Alumno;
 use App\Models\Academia\AlumnoGrupo;
-use App\Models\Academia\AlumnoKardex;
+use App\Models\Academia\AlumnoAsistencia;
+use App\Models\Academia\GrupoAsistencia;
+use App\Models\Academia\HorarioDet;
 use App\Services\CicloActualService;
 use App\Services\HorarioResolver;
-use App\Services\KardexCalculator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
@@ -21,8 +23,7 @@ class GrupoController extends Controller
 {
     public function __construct(
         protected CicloActualService $cicloService,
-        protected HorarioResolver $horarioResolver,
-        protected KardexCalculator $kardexCalculator
+        protected HorarioResolver $horarioResolver
     ) {}
 
     public function index(Request $request): View
@@ -31,6 +32,12 @@ class GrupoController extends Controller
         
         $grupos = Grupo::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)
             ->activo()
+            ->when($request->filled('nivel'), fn ($query) => $query->where('nivel', $request->string('nivel')->toString()))
+            ->when($request->filled('turno'), fn ($query) => $query->whereRaw(
+                'UPPER(turno) LIKE ?',
+                [strtoupper(substr($request->string('turno')->toString(), 0, 1)) . '%'],
+            ))
+            ->when($request->filled('sede'), fn ($query) => $query->where('id_campus', $request->string('sede')->toString()))
             ->with(['nivelRel', 'turnoRel', 'sede'])
             ->orderBy('grado')
             ->orderBy('turno')
@@ -52,14 +59,19 @@ class GrupoController extends Controller
         
         // Alumnos inscritos
         $alumnos = $grupo->alumnos()
+            ->with(['nivelRel', 'turnoRel', 'sede'])
             ->orderBy('paterno')
             ->orderBy('materno')
             ->orderBy('nombre')
             ->paginate(30);
 
         // Horarios del grupo
-        $horarios = $grupo->horarios()
-            ->with(['materia', 'profesor', 'sede', 'sesionBase'])
+        $horarios = HorarioDet::query()
+            ->where('codigo_grupo', $grupo->codigo_grupo)
+            ->where('inicial', $grupo->inicial)
+            ->where('final', $grupo->final)
+            ->where('periodo', $grupo->periodo)
+            ->with(['materia', 'profesor', 'sede'])
             ->activo()
             ->orderBy('dia')
             ->orderBy('sesion')
@@ -84,25 +96,70 @@ class GrupoController extends Controller
     public function asistencia(Request $request, Grupo $grupo): View
     {
         $ciclo = $this->cicloService->resolve($request);
-        $dia = $request->get('dia', now()->dayOfWeekIso);
         $fecha = $request->get('fecha', now()->toDateString());
 
-        $horarios = $this->horarioResolver->getClaseAsistenciaGrid(
-            $ciclo->inicial, $ciclo->final, $ciclo->periodo,
-            $grupo->nivel, $grupo->turno, $dia, $fecha
+        abort_unless(
+            $grupo->inicial === $ciclo->inicial
+                && $grupo->final === $ciclo->final
+                && $grupo->periodo === $ciclo->periodo,
+            404
         );
 
-        $stats = $this->horarioResolver->getClaseAsistenciaStats(
-            $ciclo->inicial, $ciclo->final, $ciclo->periodo,
-            $grupo->nivel, $grupo->turno, $dia, $fecha
-        );
+        $horariosPorDia = HorarioDet::query()
+            ->where('codigo_grupo', $grupo->codigo_grupo)
+            ->where('inicial', $ciclo->inicial)
+            ->where('final', $ciclo->final)
+            ->where('periodo', $ciclo->periodo)
+            ->where('activo', true)
+            ->with(['materia', 'profesor', 'sede', 'sesionBase'])
+            ->orderBy('dia')
+            ->orderBy('sesion')
+            ->get()
+            ->groupBy('dia');
+
+        $clases = $horariosPorDia->flatten(1)->values();
+        $claseSeleccionada = $clases->firstWhere('id', (int) $request->get('horario_id'))
+            ?? $clases->first();
+
+        $alumnos = $grupo->alumnos()
+            ->where('alumnos_grupos.estatus', 'INSCRITO')
+            ->orderBy('paterno')
+            ->orderBy('materno')
+            ->orderBy('nombre')
+            ->get();
+
+        $asistencias = collect();
+        $grupoAsistencia = null;
+
+        if ($claseSeleccionada) {
+            $contexto = $this->contextoClase($ciclo, $grupo, $claseSeleccionada, $fecha);
+            $asistencias = AlumnoAsistencia::query()
+                ->where($contexto)
+                ->get()
+                ->keyBy('numero_alumno');
+            $grupoAsistencia = GrupoAsistencia::query()->where($contexto)->first();
+        }
+
+        $stats = [
+            'total_alumnos' => $alumnos->count(),
+            'capturadas' => $asistencias->count(),
+            'presentes' => $asistencias->where('estado', 'PRESENTE')->count(),
+            'ausentes' => $asistencias->where('estado', 'AUSENTE')->count(),
+            'retardos' => $asistencias->where('estado', 'RETARDO')->count(),
+            'justificados' => $asistencias->where('estado', 'JUSTIFICADO')->count(),
+        ];
 
         return view('academia.grupos.asistencia', [
             'ciclo' => $ciclo,
             'grupo' => $grupo,
-            'horarios' => $horarios,
+            'horariosPorDia' => collect(range(1, 7))->mapWithKeys(
+                fn (int $dia) => [$dia => $horariosPorDia->get($dia, collect())]
+            ),
+            'claseSeleccionada' => $claseSeleccionada,
+            'alumnos' => $alumnos,
+            'asistencias' => $asistencias,
+            'grupoAsistencia' => $grupoAsistencia,
             'stats' => $stats,
-            'dia' => $dia,
             'fecha' => $fecha,
             'diasSemana' => [
                 1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles',
@@ -113,56 +170,99 @@ class GrupoController extends Controller
 
     public function guardarAsistencia(Request $request): RedirectResponse
     {
-        // Datos del formulario de captura de asistencia
-        $acInicial = $request->get('acInicial');
-        $acFinal = $request->get('acFinal');
-        $acPeriodo = $request->get('acPeriodo');
-        $acGrupo = $request->get('acGrupo');
-        $acProfesor = $request->get('acProfesor');
-        $acAsignatura = $request->get('acAsignatura');
-        $acDia = $request->get('acDia');
-        $acSesion = $request->get('acSesion');
-        $acFecha = $request->get('acFecha');
-        $acNombre = $request->get('acNombre');
-        $acMateria = $request->get('acMateria');
-        $acGrupoLabel = $request->get('acGrupoLabel');
-        $acAula = $request->get('acAula');
-        $acHora = $request->get('acHora');
-        $acEstado = $request->get('acEstado');
-        $acObs = $request->get('acObs');
+        $data = $request->validate([
+            'inicial' => ['required', 'integer'],
+            'final' => ['required', 'integer'],
+            'periodo' => ['required', 'integer'],
+            'horario_id' => ['required', 'integer'],
+            'codigo_grupo' => ['required', 'string', 'max:50'],
+            'fecha' => ['required', 'date'],
+            'observacion_grupo' => ['nullable', 'string', 'max:1000'],
+            'alumnos' => ['required', 'array'],
+        ]);
 
-        // Buscar o crear el registro de kardex de asistencia
-        $kardex = AlumnoKardex::where('clave_asignatura', $acAsignatura)
-            ->where('inicial', $acInicial)
-            ->where('final', $acFinal)
-            ->where('periodo', $acPeriodo)
-            ->where('numero_alumno', null) // Nuevo registro
-            ->first();
+        $horario = HorarioDet::query()
+            ->whereKey($data['horario_id'])
+            ->where('codigo_grupo', $data['codigo_grupo'])
+            ->where('inicial', $data['inicial'])
+            ->where('final', $data['final'])
+            ->where('periodo', $data['periodo'])
+            ->firstOrFail();
 
-        if (! $kardex) {
-            $kardex = new AlumnoKardex();
-            $kardex->clave_asignatura = $acAsignatura;
-            $kardex->inicial = $acInicial;
-            $kardex->final = $acFinal;
-            $kardex->periodo = $acPeriodo;
-            $kardex->numero_alumno = null;
-        }
+        $grupo = Grupo::porCiclo($data['inicial'], $data['final'], $data['periodo'])
+            ->where('codigo_grupo', $data['codigo_grupo'])
+            ->firstOrFail();
 
-        // Determinar el literal de asistencia
-        $literal = match ($acEstado) {
-            'PRESENTE' => 'PRESENTE',
-            'AUSENTE' => 'AUSENTE',
-            'RETARDO' => 'RETARDO',
-            'JUSTIFICADO' => 'JUSTIFICADO',
-            default => 'SIN_CAPTURA',
-        };
+        $contexto = $this->contextoClaseFromHorario($data, $horario);
+        $inscritos = AlumnoGrupo::query()
+            ->where($this->cicloWhere($data))
+            ->where('codigo_grupo', $grupo->codigo_grupo)
+            ->where('estatus', 'INSCRITO')
+            ->pluck('numero_alumno');
 
-        // Guardar los datos de asistencia
-        $kardex->id_eval = 'ASISTENCIA';
-        $kardex->literal = $literal;
-        $kardex->observaciones = $acObs;
-        $kardex->save();
+        DB::transaction(function () use ($data, $contexto, $inscritos) {
+            GrupoAsistencia::updateOrCreate(
+                $contexto,
+                ['observaciones' => $data['observacion_grupo'] ?? null],
+            );
 
-        return back()->with('success', 'Asistencia de ' . $acEstado . ' guardada para ' . $acNombre . ' en ' . $acGrupoLabel . ' (' . $acHora . ')');
+            foreach ($inscritos as $numeroAlumno) {
+                $registro = $data['alumnos'][(string) $numeroAlumno] ?? $data['alumnos'][$numeroAlumno] ?? null;
+                if (! is_array($registro)) {
+                    continue;
+                }
+
+                $estado = $registro['estado'] ?? null;
+                if (! in_array($estado, ['PRESENTE', 'AUSENTE', 'RETARDO', 'JUSTIFICADO'], true)) {
+                    continue;
+                }
+
+                AlumnoAsistencia::updateOrCreate(
+                    array_merge($contexto, ['numero_alumno' => $numeroAlumno]),
+                    ['estado' => $estado, 'observaciones' => $registro['observaciones'] ?? null],
+                );
+            }
+        });
+
+        return back()->with('success', 'Asistencia del grupo y sus alumnos guardada correctamente.');
+    }
+
+    private function cicloWhere(array $data): array
+    {
+        return [
+            'inicial' => $data['inicial'],
+            'final' => $data['final'],
+            'periodo' => $data['periodo'],
+        ];
+    }
+
+    private function contextoClase($ciclo, Grupo $grupo, HorarioDet $horario, string $fecha): array
+    {
+        return [
+            'inicial' => $ciclo->inicial,
+            'final' => $ciclo->final,
+            'periodo' => $ciclo->periodo,
+            'codigo_grupo' => $grupo->codigo_grupo,
+            'clave_profesor' => $horario->clave_profesor,
+            'clave_asignatura' => $horario->clave_asignatura,
+            'dia' => $horario->dia,
+            'sesion' => $horario->sesion,
+            'fecha' => $fecha,
+        ];
+    }
+
+    private function contextoClaseFromHorario(array $data, HorarioDet $horario): array
+    {
+        return [
+            'inicial' => $data['inicial'],
+            'final' => $data['final'],
+            'periodo' => $data['periodo'],
+            'codigo_grupo' => $data['codigo_grupo'],
+            'clave_profesor' => $horario->clave_profesor,
+            'clave_asignatura' => $horario->clave_asignatura,
+            'dia' => $horario->dia,
+            'sesion' => $horario->sesion,
+            'fecha' => $data['fecha'],
+        ];
     }
 }

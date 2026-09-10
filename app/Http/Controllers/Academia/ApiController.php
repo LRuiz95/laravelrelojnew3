@@ -102,11 +102,33 @@ class ApiController extends Controller
     {
         $tipo = $request->get('tipo', 'horarios');
 
-        $query = match ($tipo) {
-            'kardex' => Ciclo::query()->whereHas('alumnosKardex'),
-            'cursos' => Ciclo::query()->whereHas('cursos'),
-            default => Ciclo::query()->whereHas('horarios'),
-        };
+        $query = Ciclo::query();
+
+        if ($tipo === 'kardex') {
+            $query->whereExists(function ($subquery) {
+                $subquery->selectRaw('1')
+                    ->from('alumnos_kardex as ak')
+                    ->whereColumn('ak.inicial', 'ciclos.inicial')
+                    ->whereColumn('ak.final', 'ciclos.final')
+                    ->whereColumn('ak.periodo', 'ciclos.periodo');
+            });
+        } elseif ($tipo === 'cursos') {
+            $query->whereExists(function ($subquery) {
+                $subquery->selectRaw('1')
+                    ->from('cursos as c')
+                    ->whereColumn('c.inicial', 'ciclos.inicial')
+                    ->whereColumn('c.final', 'ciclos.final')
+                    ->whereColumn('c.periodo', 'ciclos.periodo');
+            });
+        } else {
+            $query->whereExists(function ($subquery) {
+                $subquery->selectRaw('1')
+                    ->from('horarios_det as h')
+                    ->whereColumn('h.inicial', 'ciclos.inicial')
+                    ->whereColumn('h.final', 'ciclos.final')
+                    ->whereColumn('h.periodo', 'ciclos.periodo');
+            });
+        }
 
         $ciclos = $query->latest('inicial')
             ->latest('final')
@@ -229,8 +251,12 @@ class ApiController extends Controller
             return response()->json(['success' => false, 'data' => null]);
         }
 
-        $horarios = $grupo->horarios()
-            ->with(['materia', 'profesor', 'sede', 'sesionBase'])
+        $horarios = HorarioDet::query()
+            ->where('codigo_grupo', $grupo->codigo_grupo)
+            ->where('inicial', $grupo->inicial)
+            ->where('final', $grupo->final)
+            ->where('periodo', $grupo->periodo)
+            ->with(['materia', 'profesor', 'sede'])
             ->activo()
             ->orderBy('dia')
             ->orderBy('sesion')

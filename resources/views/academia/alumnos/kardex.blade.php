@@ -12,7 +12,7 @@
         <a href="{{ route('academia.alumnos.show', $alumno) }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Volver
         </a>
-        <a href="{{ route('academia.alumnos.kardex.print', ['alumno_id' => $alumno->numero_alumno]) }}" target="_blank" class="btn btn-primary">
+        <a href="{{ route('academia.kardex.print', ['alumno_id' => $alumno->numero_alumno, 'ciclo_principal' => $ciclo->label]) }}" target="_blank" class="btn btn-primary">
             <i class="bi bi-printer me-1"></i> Imprimir
         </a>
     </div>

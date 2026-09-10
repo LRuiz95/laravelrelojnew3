@@ -85,7 +85,7 @@ class ProfesorController extends Controller
         );
 
         // Horarios del ciclo
-        $horarios = HorarioDet::with(['grupo', 'materia', 'sede', 'sesionBase'])
+        $horarios = HorarioDet::with(['grupo', 'materia', 'sede'])
             ->where('clave_profesor', $profesor->clave_profesor)
             ->where('inicial', $ciclo->inicial)
             ->where('final', $ciclo->final)
@@ -133,7 +133,7 @@ class ProfesorController extends Controller
     {
         $ciclo = $this->cicloService->resolve($request);
         
-        $horarios = HorarioDet::with(['grupo', 'materia', 'sede', 'sesionBase'])
+        $horarios = HorarioDet::with(['grupo', 'materia', 'sede'])
             ->where('clave_profesor', $profesor->clave_profesor)
             ->where('inicial', $ciclo->inicial)
             ->where('final', $ciclo->final)

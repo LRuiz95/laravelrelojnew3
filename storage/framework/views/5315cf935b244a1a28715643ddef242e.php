@@ -358,7 +358,13 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                window.location.reload();
+                const url = new URL(window.location.href);
+                if (label) {
+                    url.searchParams.set('ciclo_principal', label);
+                } else {
+                    url.searchParams.delete('ciclo_principal');
+                }
+                window.location.assign(url.toString());
             }
         })
         .catch(error => {

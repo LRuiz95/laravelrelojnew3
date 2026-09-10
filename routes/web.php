@@ -155,7 +155,16 @@ Route::middleware('admin')->group(function () {
             Route::post('/{employee}/enroll-device', [EmployeeController::class, 'enrollOnDevice'])->name('enroll-device')->middleware('throttle:30,1');
             Route::post('/{employee}/sync-devices', [EmployeeController::class, 'syncToDevices'])->name('sync-devices')->middleware('throttle:30,1');
             Route::delete('/{employee}', [EmployeeController::class, 'destroy'])->name('destroy');
+            Route::post('/{employee}/fingerprints/{fingerprint}/copy', [FingerprintController::class, 'copyFingerprint'])->name('copy-fingerprint');
+            Route::delete('/{employee}/fingerprints/{fingerprint}', [FingerprintController::class, 'deleteFingerprint'])->name('delete-fingerprint');
         });
+
+        // Sobrantes: device_employee sin employee válido o con employee dado de baja
+        Route::get('/sobrantes', [EmployeeController::class, 'sobrantes'])->name('sobrantes');
+        Route::get('/sobrantes/data', [EmployeeController::class, 'sobrantesData'])->name('sobrantes.data');
+        Route::post('/sobrantes/{deviceId}/{deviceUid}/ignore', [EmployeeController::class, 'sobrantesIgnore'])->middleware('admin')->name('sobrantes.ignore');
+        Route::post('/sobrantes/{deviceId}/{deviceUid}/unignore', [EmployeeController::class, 'sobrantesUnignore'])->middleware('admin')->name('sobrantes.unignore');
+        Route::post('/sobrantes/{deviceId}/{deviceUid}/{type}/remove', [EmployeeController::class, 'sobrantesRemove'])->middleware('admin')->name('sobrantes.remove');
     });
 
     Route::get('/fingerprints', [FingerprintController::class, 'index'])->name('fingerprints.index');

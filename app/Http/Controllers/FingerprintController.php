@@ -23,7 +23,7 @@ class FingerprintController extends Controller
     /**
      * Copy a fingerprint from one device to another.
      */
-    public function copyFingerprint(Request $request): JsonResponse
+    public function copyFingerprint(\App\Models\Employee $employee, \App\Models\Fingerprint $fingerprint, Request $request): JsonResponse
     {
         // Retornar status copied
         return response()->json(['status' => 'copied']);
@@ -32,7 +32,7 @@ class FingerprintController extends Controller
     /**
      * Delete a fingerprint from a device.
      */
-    public function deleteFingerprint(Request $request): JsonResponse
+    public function deleteFingerprint(\App\Models\Employee $employee, \App\Models\Fingerprint $fingerprint, Request $request): JsonResponse
     {
         // Retornar status deleted
         return response()->json(['status' => 'deleted']);

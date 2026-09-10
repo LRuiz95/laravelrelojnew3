@@ -371,10 +371,9 @@ class ZktecoService
                 continue;
             }
 
-            // Último dispositivo sincronizado gana: mantiene el nombre del
-            // catálogo alineado con el checador más reciente (paridad con el
-            // comportamiento previo a la refactorización).
-            if ($employee->name !== $name) {
+            // Firebird es la fuente principal del nombre. Solo se usa el
+            // nombre del device si el catálogo no tiene uno (empty).
+            if (empty($employee->name) && $name !== '') {
                 $employee->update(['name' => $name]);
             }
 
@@ -916,10 +915,45 @@ class ZktecoService
     }
 
     /**
+     * Elimina al usuario del hardware ÚNICAMENTE.
+     *
+     * No modifica pivot, no toca Employee, no altera catálogo.
+     * Responsabilidad de un solo lado: hardware.
+     *
+     * Usar este método cuando la persistencia local la maneja
+     * quien invoca (SobranteService, DeprovisionEmployeeJob, etc.).
+     */
+    public function removeUserFromDevice(int $uid): bool
+    {
+        $zk = $this->boot();
+
+        if (! $zk) {
+            return false;
+        }
+
+        try {
+            if (! $this->withRetries(fn () => $zk->connect(), 'removeUserFromDevice:connect')) {
+                return false;
+            }
+            $result = $zk->removeUser($uid);
+            $zk->disconnect();
+
+            return (bool) $result;
+        } catch (Throwable $e) {
+            Log::error('ZKTeco removeUserFromDevice error: '.$e->getMessage(), ['device' => $this->device->ip]);
+
+            return false;
+        }
+    }
+
+    /**
      * Elimina al usuario del hardware y desvincula su enrolamiento en este
      * dispositivo. El registro del catálogo central solo se elimina cuando
      * queda sin ningún enrolamiento: la misma persona puede vivir en otros
      * checadores (sus asistencias históricas se preservan vía nullOnDelete).
+     *
+     * @deprecated Usar removeUserFromDevice() para hardware-only.
+     *             La persistencia local debe manejarla el caller.
      */
     public function removeUser(int $uid): bool
     {

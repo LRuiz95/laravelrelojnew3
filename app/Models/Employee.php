@@ -93,6 +93,25 @@ class Employee extends Model
         return $query->where('type', 'teacher');
     }
 
+    /**
+     * Empleados activos: status_actual = 'A' o NULL (sin dato se trata como activo).
+     */
+    public function scopeActivos($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('status_actual', 'A')
+              ->orWhereNull('status_actual');
+        });
+    }
+
+    /**
+     * Empleados dados de baja: status_actual = 'B'.
+     */
+    public function scopeBajas($query)
+    {
+        return $query->where('status_actual', 'B');
+    }
+
     // Accessor para etiqueta de tipo
     public function getTypeLabelAttribute(): string
     {

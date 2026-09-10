@@ -68,4 +68,52 @@ final class DeviceEmployee extends Pivot
     {
         return $this->belongsTo(Device::class);
     }
+
+    /**
+     * Determina si este enrolamiento es un "sobrante":
+     * - Tipo A: employee_id no existe en employees (huérfano)
+     * - Tipo B: employees.status_actual = 'B' (baja en Firebird)
+     *
+     * IMPORTANTE: Este accessor solo funciona correctamente cuando
+     * la relación employee está eager-loaded. Si se usa en loops,
+     * debes eager-load con ->with('employee').
+     */
+    public function getSobranteTypeAttribute(): ?string
+    {
+        // Tipo A: employee_id no existe
+        if (! $this->relationLoaded('employee')) {
+            // Si no está eager-loaded, verificar por ID
+            if ($this->employee_id && ! Employee::where('id', $this->employee_id)->exists()) {
+                return 'A';
+            }
+            // Si employee_id es null
+            if (is_null($this->employee_id)) {
+                return 'A';
+            }
+            return null;
+        }
+
+        if (! $this->employee) {
+            return 'A';
+        }
+
+        // Tipo B: employee existe pero está dado de baja
+        if ($this->employee->status_actual === 'B') {
+            return 'B';
+        }
+
+        return null;
+    }
+
+    /**
+     * Retorna el motivo legible del sobrante.
+     */
+    public function getSobranteReasonAttribute(): ?string
+    {
+        return match ($this->sobrante_type) {
+            'A' => 'NO EXISTE EN CATÁLOGO',
+            'B' => 'BAJA EN FIREBIRD',
+            default => null,
+        };
+    }
 }

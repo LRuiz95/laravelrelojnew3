@@ -7,8 +7,10 @@ namespace App\Http\Controllers;
 use App\Jobs\DeprovisionEmployeeJob;
 use App\Jobs\SyncEmployeeToDeviceJob;
 use App\Models\Device;
+use App\Models\DeviceSync;
 use App\Models\Employee;
 use App\Models\Fingerprint;
+use App\Services\SobranteService;
 use App\Services\ZktecoService;
 use App\Http\Requests\EmployeeFormRequest;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +21,7 @@ use Illuminate\View\View;
 
 class EmployeeController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, SobranteService $sobranteService): View
     {
         $query = Employee::query()
             ->with('devices')
@@ -38,11 +40,24 @@ class EmployeeController extends Controller
             });
         }
 
+        // Filtro por estado: activos, bajas, todos
+        $status = $request->query('status', 'todos');
+        if ($status === 'activos') {
+            $query->activos();
+        } elseif ($status === 'bajas') {
+            $query->bajas();
+        }
+
         $employees = $query->paginate(25)->withQueryString();
+
+        // Stats para tabs
+        $sobrantesStats = $sobranteService->getStats();
 
         return view('employees.index', [
             'employees' => $employees,
             'devices' => Device::orderBy('name')->get(),
+            'status' => $status,
+            'sobrantesStats' => $sobrantesStats,
         ]);
     }
 
@@ -63,6 +78,14 @@ class EmployeeController extends Controller
                     ->orWhere('user_id', $search)
                     ->orWhere('user_id', 'like', "%{$search}%");
             });
+        }
+
+        // Filtro por estado
+        $status = $request->query('status', 'todos');
+        if ($status === 'activos') {
+            $query->activos();
+        } elseif ($status === 'bajas') {
+            $query->bajas();
         }
 
         $employees = $query->paginate(25);
@@ -337,5 +360,107 @@ class EmployeeController extends Controller
             : 'Empleado marcado como Baja (sin enrolamientos activos).';
 
         return Redirect::route('employees.index')->with('success', $message);
+    }
+
+    /**
+     * Muestra la vista de sobrantes: device_employee sin employee válido
+     * o con employee dado de baja (status_actual='B').
+     */
+    public function sobrantes(Request $request, SobranteService $sobranteService): View
+    {
+        $includeIgnored = $request->boolean('ignored', false);
+        $deviceId = $request->input('device_id') ? (int) $request->input('device_id') : null;
+        $type = $request->input('type');
+        $search = $request->input('q');
+
+        $stats = $sobranteService->getStats($deviceId);
+
+        $sobrantes = $sobranteService->query(
+            $includeIgnored,
+            $deviceId,
+            $type,
+            $search,
+        )->paginate(25)->withQueryString();
+
+        return view('employees.sobrantes', [
+            'sobrantes' => $sobrantes,
+            'stats' => $stats,
+            'includeIgnored' => $includeIgnored,
+            'deviceId' => $deviceId,
+            'type' => $type,
+            'search' => $search,
+            'devices' => Device::orderBy('name')->get(),
+        ]);
+    }
+
+    /**
+     * AJAX data endpoint para DataTables de sobrantes.
+     */
+    public function sobrantesData(Request $request, SobranteService $sobranteService): JsonResponse
+    {
+        $includeIgnored = $request->boolean('ignored', false);
+        $deviceId = $request->input('device_id') ? (int) $request->input('device_id') : null;
+        $type = $request->input('type');
+        $search = $request->input('q');
+
+        $sobrantes = $sobranteService->query(
+            $includeIgnored,
+            $deviceId,
+            $type,
+            $search,
+        )->get();
+
+        return response()->json([
+            'data' => $sobrantes,
+            'stats' => $sobranteService->getStats($deviceId),
+        ]);
+    }
+
+    /**
+     * Marca un sobrante como ignorado (revisado por admin).
+     */
+    public function sobrantesIgnore(int $deviceId, int $deviceUid, SobranteService $sobranteService): RedirectResponse
+    {
+        $success = $sobranteService->ignore($deviceId, $deviceUid);
+
+        $message = $success
+            ? 'Sobrante marcado como ignorado.'
+            : 'No se encontró el sobrante.';
+
+        return Redirect::route('employees.sobrantes')
+            ->with($success ? 'success' : 'error', $message);
+    }
+
+    /**
+     * Revoca el estado ignorado de un sobrante.
+     */
+    public function sobrantesUnignore(int $deviceId, int $deviceUid, SobranteService $sobranteService): RedirectResponse
+    {
+        $success = $sobranteService->unignore($deviceId, $deviceUid);
+
+        $message = $success
+            ? 'Sobrante restaurado.'
+            : 'No se encontró el sobrante.';
+
+        return Redirect::route('employees.sobrantes')
+            ->with($success ? 'success' : 'error', $message);
+    }
+
+    /**
+     * Elimina un sobrante: hardware + pivot, JAMÁS Employee.
+     *
+     * Tipo A: removeUserFromDevice + delete pivot (no hay Employee)
+     * Tipo B: removeUserFromDevice + delete pivot (Employee se conserva)
+     */
+    public function sobrantesRemove(
+        int $deviceId,
+        int $deviceUid,
+        string $type,
+        SobranteService $sobranteService,
+    ): RedirectResponse {
+        $result = $sobranteService->remove($deviceId, $deviceUid, $type);
+
+        return Redirect::route('employees.sobrantes')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 }

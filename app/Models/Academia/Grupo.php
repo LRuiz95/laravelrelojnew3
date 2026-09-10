@@ -27,14 +27,20 @@ class Grupo extends Model
 
     protected $fillable = [
         'codigo_grupo',
+        'tipo_grupo',
+        'cupo_maximo',
         'inicial',
         'final',
         'periodo',
         'grado',
+        'grupo',
         'turno',
         'nivel',
         'inscritos',
         'id_campus',
+        'clave_profesor_titular',
+        'clave_profesor_suplente',
+        'ciclo_cerrado',
         'carrera',
         'activo',
     ];

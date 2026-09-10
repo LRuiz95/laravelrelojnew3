@@ -20,8 +20,19 @@ class Curso extends Model
         'inicial',
         'final',
         'periodo',
+        'id_plan',
+        'id_tipoeval',
+        'id_etapa',
         'clave_curso',
         'codigo_grupo',
+        'clave_asignatura',
+        'clave_profesor',
+        'cupo_maximo',
+        'desde',
+        'hasta',
+        'sesiones',
+        'inscritos',
+        'suplente',
         'nombre_curso',
         'nivel',
         'turno',
@@ -30,6 +41,12 @@ class Curso extends Model
     ];
 
     protected $casts = [
+        'id_plan' => 'integer',
+        'cupo_maximo' => 'integer',
+        'sesiones' => 'integer',
+        'inscritos' => 'integer',
+        'desde' => 'date',
+        'hasta' => 'date',
         'inicial' => 'integer',
         'final' => 'integer',
         'periodo' => 'integer',
@@ -56,6 +73,21 @@ class Curso extends Model
     public function sede(): BelongsTo
     {
         return $this->belongsTo(Sede::class, 'id_campus', 'id_campus');
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class, 'id_plan', 'id_plan');
+    }
+
+    public function materia(): BelongsTo
+    {
+        return $this->belongsTo(Materia::class, 'clave_asignatura', 'clave_asignatura');
+    }
+
+    public function profesor(): BelongsTo
+    {
+        return $this->belongsTo(Profesor::class, 'clave_profesor', 'clave_profesor');
     }
 
     public function nivelRel(): BelongsTo

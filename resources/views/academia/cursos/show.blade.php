@@ -7,7 +7,7 @@
     <div>
         <h1 class="h3 mb-1">{{ $curso->nombre_curso }}</h1>
         <p class="text-muted mb-0">
-            {{ $curso->clave_curso }} | {{ $curso->nombre_curso }} · {{ $curso->nivelRel?->descripcion ?? $curso->nivel }} · {{ $curso->turno_nombre }} · {{ $curso->sede?->descripcion ?? $curso->id_campus }}
+            {{ $curso->clave_curso }} | {{ $curso->nombre_curso }} · {{ $curso->nivelRel?->descripcion ?? $curso->plan?->nivelRel?->descripcion ?? $curso->nivel ?? 'Nivel no asignado' }} · {{ $curso->turno_nombre }} · {{ $curso->sede?->descripcion ?? $curso->id_campus }}
             <span class="ms-2 badge bg-secondary">{{ $alumnos->count() }} alumnos</span>
         </p>
     </div>
@@ -68,36 +68,45 @@
                     <tbody>
                         @php
                             $m = $materias->first();
+                            $materiaNombre = $materia?->nombre_asignatura ?? $m?->materia?->nombre_asignatura;
+                            $materiaClave = $materia?->clave_asignatura ?? $m?->clave_asignatura;
+                            $materiaSemestre = $m?->semestre ?? $materia?->grado;
+                            $materiaTeoria = $m?->horas_teoria ?? $materia?->horas_teoria;
+                            $materiaPractica = $m?->horas_practica ?? $materia?->horas_practica;
+                            $materiaTipo = $m?->tipo;
+                            $materiaActiva = $m?->activo ?? $materia?->activa;
                         @endphp
                             <tr>
-                                <td class="fw-semibold">{{ $m->clave_asignatura }}</td>
+                                <td class="fw-semibold">{{ $materiaClave }}</td>
                                 <td>
-                                    @if ($m->materia)
-                                        {{ $m->materia->nombre_asignatura }}
+                                    @if ($materiaNombre)
+                                        {{ $materiaNombre }}
                                     @else
                                         <span class="text-warning">Materia no encontrada</span>
                                         <small class="d-block text-muted">Verificar catálogo de materias</small>
                                     @endif
                                 </td>
-                                <td>{{ $m->semestre ?? '—' }}</td>
-                                <td class="text-center">{{ $m->horas_teoria }}</td>
-                                <td class="text-center">{{ $m->horas_practica }}</td>
-                                <td class="text-center">{{ $m->materia?->creditos ?? '—' }}</td>
+                                <td>{{ $materiaSemestre ?? '—' }}</td>
+                                <td class="text-center">{{ $materiaTeoria ?? '—' }}</td>
+                                <td class="text-center">{{ $materiaPractica ?? '—' }}</td>
+                                <td class="text-center">{{ $materia?->creditos ?? $m?->materia?->creditos ?? '—' }}</td>
                                 <td>
-                                    <span class="badge {{ $m->tipo === 'obligatoria' ? 'bg-primary' : 'bg-secondary' }}">
-                                        {{ $m->tipo }}
+                                    <span class="badge {{ $materiaTipo === 'obligatoria' ? 'bg-primary' : 'bg-secondary' }}">
+                                        {{ $materiaTipo ?? 'Curso' }}
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge badge--status {{ $m->activo ? 'badge--active' : 'badge--inactive' }}">
-                                        {{ $m->activo ? 'Activa' : 'Inactiva' }}
+                                    <span class="badge badge--status {{ $materiaActiva === false ? 'badge--inactive' : 'badge--active' }}">
+                                        {{ $materiaActiva === false ? 'Inactiva' : 'Activa' }}
                                     </span>
                                 </td>
                                 <td class="text-end">
                                     <div class="btn-group btn-group-sm">
+                                        @if ($m?->id)
                                         <button type="button" class="btn btn-outline-danger" onclick="eliminarMateria({{ $m->id }})" title="Quitar">
                                             <i class="bi bi-trash"></i>
                                         </button>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

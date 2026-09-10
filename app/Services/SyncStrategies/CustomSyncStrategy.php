@@ -34,6 +34,7 @@ class CustomSyncStrategy implements SyncStrategyInterface
         // Tablas de ciclo (CycleDirectSync) - REQUIEREN filtro por ciclo
         'GRUPOS' => 'cycle',
         'ALUMNOS_GRUPOS' => 'cycle',  // Filtrado por ciclo (inicial, final, periodo)
+        'ALUMNOS_CURSOS' => 'cycle',
         'HORARIOS_DET' => 'cycle',
         'CURSOS' => 'cycle',
         'CURSOS_DET' => 'cycle',
@@ -52,9 +53,10 @@ class CustomSyncStrategy implements SyncStrategyInterface
     public const TABLE_DEPENDENCIES = [
         // Ciclo → depende de catálogos base
         'GRUPOS'         => ['CICLOS', 'CFGNIVELES', 'CFGTURNOS', 'CFGSEDES'],
-        'CURSOS'         => ['CICLOS'],
-        'CURSOS_DET'     => ['CURSOS', 'CFGPLANES_DET'],
+            'CURSOS'         => ['CICLOS', 'CFGPLANES_MST'],
+            'CURSOS_DET'     => ['CURSOS'],
         'ALUMNOS_GRUPOS' => ['ALUMNOS', 'GRUPOS'],
+        'ALUMNOS_CURSOS' => ['ALUMNOS', 'CURSOS'],
         'HORARIOS_DET'   => ['CICLOS', 'GRUPOS', 'PROFESORES', 'CFGPLANES_DET', 'CFGSEDES'],
 
         // Alumnos → dependen de catálogos

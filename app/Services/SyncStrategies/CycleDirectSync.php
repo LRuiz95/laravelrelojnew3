@@ -39,6 +39,7 @@ class CycleDirectSync implements SyncStrategyInterface
         'ALUMNOS',
         'ALUMNOS_NIVELES',
         'ALUMNOS_GRUPOS',
+        'ALUMNOS_CURSOS',
     ];
 
     /**
@@ -56,9 +57,21 @@ class CycleDirectSync implements SyncStrategyInterface
             'DESCRIPCION'  => 'nombre_curso',
             'CODIGO_GRUPO' => 'codigo_grupo',
             'NIVEL'        => 'nivel',
+            'ID_PLAN' => 'id_plan',
+            'ID_TIPOEVAL' => 'id_tipoeval',
+            'ID_ETAPA' => 'id_etapa',
+            'CLAVEASIGNATURA' => 'clave_asignatura',
+            'CLAVEPROFESOR' => 'clave_profesor',
+            'CUPOMAXIMO' => 'cupo_maximo',
+            'DESDE' => 'desde',
+            'HASTA' => 'hasta',
+            'SESIONES' => 'sesiones',
+            'INSCRITOS' => 'inscritos',
+            'SUPLENTE' => 'suplente',
         ],
         'CURSOS_DET' => [
             'CODIGO_CURSO' => 'curso_id',    // Resolved via COMPOSITE_FK_RESOLVE
+            'ID_ESCUELA' => 'id_escuela',
             'DIA'          => 'dia',
             'HORA_INICIAL' => 'hora_inicial',
             'HORA_FINAL'   => 'hora_final',
@@ -71,6 +84,12 @@ class CycleDirectSync implements SyncStrategyInterface
         ],
         'GRUPOS' => [
             'CODIGO_GRUPO' => 'codigo_grupo',
+            'TIPO_GRUPO' => 'tipo_grupo',
+            'CUPO_MAXIMO' => 'cupo_maximo',
+            'GRUPO' => 'grupo',
+            'CLAVEPROFESOR_TITULAR' => 'clave_profesor_titular',
+            'CLAVEPROFESOR_SUPLENTE' => 'clave_profesor_suplente',
+            'CICLO_CERRADO' => 'ciclo_cerrado',
         ],
         'CICLOS' => [],
         'ALUMNOS_NIVELES' => [
@@ -85,6 +104,19 @@ class CycleDirectSync implements SyncStrategyInterface
         'ALUMNOS_GRUPOS' => [
             'NUMEROALUMNO'  => 'numero_alumno',
             'CODIGO_GRUPO'  => 'codigo_grupo',
+        ],
+        'ALUMNOS_CURSOS' => [
+            'NUMEROALUMNO' => 'numero_alumno',
+            'CODIGO_CURSO' => 'codigo_curso',
+            'STATUS' => 'status',
+            'ID_PLAN' => 'id_plan',
+            'ID_TIPOEVAL' => 'id_tipoeval',
+            'ID_ETAPA' => 'id_etapa',
+            'CLAVEASIGNATURA' => 'clave_asignatura',
+            'VERSION' => 'version',
+            'TIPOEXAMEN' => 'tipoexamen',
+            'WEB' => 'web',
+            'WEB_OPERACION' => 'web_operacion',
         ],
     ];
 
@@ -146,6 +178,7 @@ class CycleDirectSync implements SyncStrategyInterface
         'ALUMNOS_NIVELES' => ['numero_alumno', 'inicial', 'final', 'periodo'],
         'ALUMNOS'         => ['numero_alumno'],
         'ALUMNOS_GRUPOS'  => ['numero_alumno', 'codigo_grupo', 'inicial', 'final', 'periodo'],
+        'ALUMNOS_CURSOS'  => ['inicial', 'final', 'periodo', 'codigo_curso', 'numero_alumno', 'id_tipoeval', 'id_etapa', 'clave_asignatura', 'version', 'tipoexamen'],
     ];
 
     public function execute(
@@ -174,6 +207,11 @@ class CycleDirectSync implements SyncStrategyInterface
         $totals = ['created' => 0, 'updated' => 0, 'deleted' => 0, 'processed' => 0, 'total' => 0];
 
         $mysql = DB::connection()->getPdo();
+        $workset = $this->buildCycleWorkset($firebirdReader, $I, $F, $P);
+        $log[] = ['tipo' => 'info', 'msg' => sprintf(
+            'Conjunto de trabajo: %d grupos, %d cursos, %d alumnos',
+            count($workset['grupos']), count($workset['cursos']), count($workset['alumnos'])
+        )];
 
         // FASE 1: Tablas directas por ciclo
         $log[] = ['tipo' => 'info', 'msg' => "=== CICLO {$I}-{$F}-{$P} ==="];
@@ -181,7 +219,7 @@ class CycleDirectSync implements SyncStrategyInterface
 
         foreach ($tablasCiclo as $tabla) {
             $result = $this->syncCycleTable(
-                $firebirdReader, $mysql, $tabla, $I, $F, $P, $deleteOrphans, $skipExisting
+                $firebirdReader, $mysql, $tabla, $I, $F, $P, $deleteOrphans, $skipExisting, $workset
             );
             $log = array_merge($log, $result['log']);
             $errors = array_merge($errors, $result['errors']);
@@ -197,7 +235,7 @@ class CycleDirectSync implements SyncStrategyInterface
         // 2.1 Obtener IDs de alumnos DIRECTAMENTE de Firebird (no de MySQL)
         //     ALUMNOS_NIVELES en Firebird tiene los IDs, pero en MySQL no existen aún
         //     porque ALUMNOS no se ha sincronizado (chicken-and-egg).
-        $alumnoIds = $this->getAlumnoIdsFromFirebird($firebirdReader, $I, $F, $P);
+        $alumnoIds = $workset['alumnos'];
         $log[] = ['tipo' => 'info', 'msg' => "Alumnos encontrados en FB: " . count($alumnoIds)];
 
         if (empty($alumnoIds)) {
@@ -216,7 +254,7 @@ class CycleDirectSync implements SyncStrategyInterface
 
             // 2.3 ALUMNOS_NIVELES (con filtro ciclo — ahora ALUMNOS ya existe en MySQL)
             $result = $this->syncCycleTable(
-                $firebirdReader, $mysql, 'ALUMNOS_NIVELES', $I, $F, $P, $deleteOrphans, $skipExisting
+                $firebirdReader, $mysql, 'ALUMNOS_NIVELES', $I, $F, $P, $deleteOrphans, $skipExisting, $workset
             );
             $log = array_merge($log, $result['log']);
             $errors = array_merge($errors, $result['errors']);
@@ -226,8 +264,8 @@ class CycleDirectSync implements SyncStrategyInterface
             $totals['processed'] += $result['processed'];
 
             // 2.4 ALUMNOS_GRUPOS (con filtro ciclo — ahora ALUMNOS y GRUPOS ya existen)
-            $result = $this->syncCycleTable(
-                $firebirdReader, $mysql, 'ALUMNOS_GRUPOS', $I, $F, $P, $deleteOrphans, $skipExisting
+            $result = $this->syncAlumnosGruposForCycle(
+                $firebirdReader, $mysql, $I, $F, $P, $deleteOrphans, $skipExisting, $workset
             );
             $log = array_merge($log, $result['log']);
             $errors = array_merge($errors, $result['errors']);
@@ -235,6 +273,18 @@ class CycleDirectSync implements SyncStrategyInterface
             $totals['updated'] += $result['updated'];
             $totals['deleted'] += $result['deleted'];
             $totals['processed'] += $result['processed'];
+
+            if (in_array('ALUMNOS_CURSOS', $tablasAlumnos, true)) {
+                $result = $this->syncAlumnosCursosForCycle(
+                    $firebirdReader, $mysql, $I, $F, $P, $deleteOrphans, $skipExisting, $workset
+                );
+                $log = array_merge($log, $result['log']);
+                $errors = array_merge($errors, $result['errors']);
+                $totals['created'] += $result['created'];
+                $totals['updated'] += $result['updated'];
+                $totals['deleted'] += $result['deleted'];
+                $totals['processed'] += $result['processed'];
+            }
         }
 
         $log[] = ['tipo' => 'info', 'msg' => "=== FIN CICLO {$I}-{$F}-{$P} ==="];
@@ -256,7 +306,8 @@ class CycleDirectSync implements SyncStrategyInterface
         string $tabla,
         int $I, int $F, int $P,
         bool $deleteOrphans,
-        bool $skipExisting = false
+        bool $skipExisting = false,
+        array $workset = []
     ): array {
         $log = [];
         $errors = [];
@@ -265,14 +316,27 @@ class CycleDirectSync implements SyncStrategyInterface
         try {
             $fbCols = $fbReader->getColumns($tabla);
             $myCols = array_map(fn($r) => strtolower($r['Field']), $this->getMysqlColumns($mysql, $tabla));
-            $total = $fbReader->countRows($tabla, "INICIAL = ? AND FINAL = ? AND PERIODO = ?", [$I, $F, $P]);
+            [$where, $params] = $this->worksetFilter($tabla, $I, $F, $P, $workset);
+            $deleteWhere = "INICIAL = ? AND FINAL = ? AND PERIODO = ?";
+            $deleteParams = [$I, $F, $P];
+            if ($tabla === 'ALUMNOS_NIVELES' && ! empty($workset['alumnos'])) {
+                $datos = [];
+                foreach (array_chunk($workset['alumnos'], 1000) as $studentChunk) {
+                    $placeholders = implode(',', array_fill(0, count($studentChunk), '?'));
+                    $chunkParams = array_merge([$I, $F, $P], $studentChunk);
+                    $datos = array_merge($datos, $fbReader->fetchRows($tabla, $fbCols, 'INICIAL = ? AND FINAL = ? AND PERIODO = ? AND NUMEROALUMNO IN (' . $placeholders . ')', $chunkParams));
+                }
+                $total = count($datos);
+                $deleteOrphans = false;
+                $deleteWhere = null;
+                $deleteParams = [];
+            } else {
+                $total = $fbReader->countRows($tabla, $where, $params);
+                $datos = $total > 0 ? $fbReader->fetchRows($tabla, $fbCols, $where, $params) : [];
+            }
             $log[] = ['tipo' => 'info', 'msg' => "{$tabla}: {$total} en FB"];
 
-            $datos = $total > 0
-                ? $fbReader->fetchRows($tabla, $fbCols, "INICIAL = ? AND FINAL = ? AND PERIODO = ?", [$I, $F, $P])
-                : [];
-
-            $result = $this->smartSync($mysql, $tabla, $fbCols, $myCols, $datos, $deleteOrphans, "INICIAL = ? AND FINAL = ? AND PERIODO = ?", [$I, $F, $P], $skipExisting);
+            $result = $this->smartSync($mysql, $tabla, $fbCols, $myCols, $datos, $deleteOrphans, $deleteWhere, $deleteParams, $skipExisting);
             $log = array_merge($log, $result['log']);
             $errors = array_merge($errors, $result['errors']);
             $created += $result['created'];
@@ -286,6 +350,166 @@ class CycleDirectSync implements SyncStrategyInterface
         }
 
         return compact('log', 'errors', 'created', 'updated', 'deleted', 'processed');
+    }
+
+    /**
+     * ALUMNOS_GRUPOS no tiene columnas de ciclo en Firebird. El ciclo se
+     * determina por los grupos del ciclo y se materializa en MySQL para
+     * conservar la clave compuesta usada por la aplicación.
+     */
+    protected function syncAlumnosGruposForCycle(
+        FirebirdReader $fbReader,
+        PDO $mysql,
+        int $I,
+        int $F,
+        int $P,
+        bool $deleteOrphans,
+        bool $skipExisting,
+        array $workset = []
+    ): array {
+        $log = [];
+        $errors = [];
+
+        try {
+            $groupRows = $fbReader->fetchRows(
+                'GRUPOS',
+                ['CODIGO_GRUPO'],
+                'INICIAL = ? AND FINAL = ? AND PERIODO = ?',
+                [$I, $F, $P],
+            );
+            $groups = $workset['grupos'] ?: array_values(array_unique(array_filter(array_column($groupRows, 'CODIGO_GRUPO'))));
+
+            if (empty($groups)) {
+                return ['log' => [['tipo' => 'skip', 'msg' => "ALUMNOS_GRUPOS: sin grupos para {$I}-{$F}-{$P}" ]], 'errors' => [], 'created' => 0, 'updated' => 0, 'deleted' => 0, 'processed' => 0];
+            }
+
+            $fbCols = $fbReader->getColumns('ALUMNOS_GRUPOS');
+            $rows = [];
+            foreach (array_chunk($groups, 500) as $chunk) {
+                $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+                $batch = $fbReader->fetchRows('ALUMNOS_GRUPOS', $fbCols, 'CODIGO_GRUPO IN (' . $placeholders . ')', $chunk);
+                foreach ($batch as $row) {
+                    $row['INICIAL'] = $I;
+                    $row['FINAL'] = $F;
+                    $row['PERIODO'] = $P;
+                    $rows[] = $row;
+                }
+            }
+
+            $result = $this->smartSync(
+                $mysql,
+                'ALUMNOS_GRUPOS',
+                array_values(array_unique(array_merge($fbCols, ['INICIAL', 'FINAL', 'PERIODO']))),
+                array_map(fn ($r) => strtolower($r['Field']), $this->getMysqlColumns($mysql, 'alumnos_grupos')),
+                $rows,
+                $deleteOrphans,
+                null,
+                [],
+                $skipExisting,
+            );
+            $result['log'][] = ['tipo' => 'info', 'msg' => "ALUMNOS_GRUPOS: ciclo heredado desde " . count($groups) . ' grupos'];
+            return $result;
+        } catch (Throwable $e) {
+            $errors[] = 'ALUMNOS_GRUPOS: ' . $e->getMessage();
+            return ['log' => [['tipo' => 'error', 'msg' => end($errors)]], 'errors' => $errors, 'created' => 0, 'updated' => 0, 'deleted' => 0, 'processed' => 0];
+        }
+    }
+
+    protected function syncAlumnosCursosForCycle(
+        FirebirdReader $fbReader,
+        PDO $mysql,
+        int $I,
+        int $F,
+        int $P,
+        bool $deleteOrphans,
+        bool $skipExisting,
+        array $workset
+    ): array {
+        try {
+            $fbCols = $fbReader->getColumns('ALUMNOS_CURSOS');
+            $rows = $fbReader->fetchRows('ALUMNOS_CURSOS', $fbCols, "INICIAL = ? AND FINAL = ? AND PERIODO = ?", [$I, $F, $P]);
+            $rows = array_values(array_filter($rows, fn ($row) => in_array((string) ($row['CODIGO_CURSO'] ?? ''), $workset['cursos'], true)
+                && in_array((string) ($row['NUMEROALUMNO'] ?? ''), $workset['alumnos'], true)));
+
+            foreach ($rows as &$row) {
+                $row['INICIAL'] = $I;
+                $row['FINAL'] = $F;
+                $row['PERIODO'] = $P;
+            }
+            unset($row);
+
+            return $this->smartSync(
+                $mysql,
+                'ALUMNOS_CURSOS',
+                array_values(array_unique(array_merge($fbCols, ['INICIAL', 'FINAL', 'PERIODO']))),
+                array_map(fn ($r) => strtolower($r['Field']), $this->getMysqlColumns($mysql, 'alumnos_cursos')),
+                $rows,
+                $deleteOrphans,
+                null,
+                [],
+                $skipExisting,
+            );
+        } catch (Throwable $e) {
+            return ['log' => [['tipo' => 'error', 'msg' => 'ALUMNOS_CURSOS: ' . $e->getMessage()]], 'errors' => [$e->getMessage()], 'created' => 0, 'updated' => 0, 'deleted' => 0, 'processed' => 0];
+        }
+    }
+
+    protected function buildCycleWorkset(FirebirdReader $reader, int $I, int $F, int $P): array
+    {
+        $groups = array_values(array_unique(array_filter(array_column(
+            $reader->fetchRows('GRUPOS', ['CODIGO_GRUPO'], 'INICIAL = ? AND FINAL = ? AND PERIODO = ?', [$I, $F, $P]),
+            'CODIGO_GRUPO'
+        ))));
+        $groupStudents = [];
+        foreach (array_chunk($groups, 500) as $chunk) {
+            if (!$chunk) continue;
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $groupStudents = array_merge($groupStudents, $reader->fetchRows('ALUMNOS_GRUPOS', ['NUMEROALUMNO'], 'CODIGO_GRUPO IN (' . $placeholders . ')', $chunk));
+        }
+        $candidateIds = array_values(array_unique(array_filter(array_column($groupStudents, 'NUMEROALUMNO'))));
+        $alumnoRows = [];
+        foreach (array_chunk($candidateIds, 1000) as $chunk) {
+            if (!$chunk) continue;
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $alumnoRows = array_merge($alumnoRows, $reader->fetchRows('ALUMNOS_CURSOS', ['NUMEROALUMNO', 'CODIGO_CURSO'], 'INICIAL = ? AND FINAL = ? AND PERIODO = ? AND NUMEROALUMNO IN (' . $placeholders . ')', array_merge([$I, $F, $P], $chunk)));
+        }
+        $courseCodes = array_values(array_unique(array_filter(array_column($alumnoRows, 'CODIGO_CURSO'))));
+        $courses = $reader->fetchRows('CURSOS', ['CODIGO_CURSO', 'CLAVEASIGNATURA'], 'INICIAL = ? AND FINAL = ? AND PERIODO = ?', [$I, $F, $P]);
+        $courses = array_values(array_filter($courses, fn ($row) => in_array((string) ($row['CODIGO_CURSO'] ?? ''), $courseCodes, true)));
+        $courseCodes = array_values(array_unique(array_filter(array_column($courses, 'CODIGO_CURSO'))));
+        $subjects = array_values(array_unique(array_filter(array_column($courses, 'CLAVEASIGNATURA'))));
+        $levelRows = $reader->fetchRows('ALUMNOS_NIVELES', ['NUMEROALUMNO'], 'INICIAL = ? AND FINAL = ? AND PERIODO = ?', [$I, $F, $P]);
+        $studentIds = array_values(array_intersect($candidateIds, array_column($levelRows, 'NUMEROALUMNO')));
+
+        return ['grupos' => $groups, 'cursos' => $courseCodes, 'materias' => $subjects, 'alumnos' => $studentIds];
+    }
+
+    protected function worksetFilter(string $table, int $I, int $F, int $P, array $workset): array
+    {
+        $base = ['INICIAL = ?', 'FINAL = ?', 'PERIODO = ?'];
+        $params = [$I, $F, $P];
+        $field = match ($table) {
+            'HORARIOS_DET' => 'CODIGO_GRUPO',
+            'CURSOS_DET' => 'CODIGO_CURSO',
+            'CURSOS' => 'CODIGO_CURSO',
+            default => null,
+        };
+        $values = match ($table) {
+            'HORARIOS_DET' => $workset['grupos'] ?? [],
+            'CURSOS_DET' => $workset['cursos'] ?? [],
+            'CURSOS' => $workset['cursos'] ?? [],
+            'ALUMNOS_NIVELES' => $workset['alumnos'] ?? [],
+            default => [],
+        };
+        if ($table === 'ALUMNOS_NIVELES' && $values) {
+            $base[] = 'NUMEROALUMNO IN (' . implode(',', array_fill(0, count($values), '?')) . ')';
+            array_push($params, ...$values);
+        }
+        if ($field && $values) {
+            $base[] = $field . ' IN (' . implode(',', array_fill(0, count($values), '?')) . ')';
+            array_push($params, ...$values);
+        }
+        return [implode(' AND ', $base), $params];
     }
 
     protected function syncTableWithoutCycleFilter(
@@ -462,7 +686,14 @@ class CycleDirectSync implements SyncStrategyInterface
         // Leer existentes
         $existing = [];
         $allColsSelect = implode(', ', array_map(fn($c) => "`{$c}`", $colNames));
-        $stmt = $mysql->query("SELECT {$allColsSelect} FROM `{$tabla}`");
+        $existingSql = "SELECT {$allColsSelect} FROM `{$tabla}`";
+        $existingParams = [];
+        if ($whereDelete) {
+            $existingSql .= " WHERE {$whereDelete}";
+            $existingParams = $paramsDelete;
+        }
+        $stmt = $mysql->prepare($existingSql);
+        $stmt->execute($existingParams);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $pkKey = '';
             foreach ($pkCols as $pk) $pkKey .= '|' . ($row[$pk] ?? '');

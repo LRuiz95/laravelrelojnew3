@@ -41,7 +41,7 @@
                             <tr>
                                 <td class="fw-semibold">{{ $c->clave_curso }}</td>
                                 <td>{{ $c->nombre_curso }}</td>
-                                <td>{{ $c->materias->first()?->materia?->nombre_asignatura ?? 'Materia no asignada' }}</td>
+                                <td>{{ $c->materia?->nombre_asignatura ?? $c->materias->first()?->materia?->nombre_asignatura ?? 'Materia no asignada' }}</td>
                                 <td class="small">
                                     @forelse ($c->docentes as $docente)
                                         <div>{{ $docente->nombre_completo ?: $docente->clave_profesor }}</div>
@@ -49,7 +49,7 @@
                                         <span class="text-muted">Sin maestro asignado</span>
                                     @endforelse
                                 </td>
-                                <td>{{ $c->nivelRel?->descripcion ?? $c->nivel }}</td>
+                                <td>{{ $c->nivelRel?->descripcion ?? $c->plan?->nivelRel?->descripcion ?? $c->nivel ?? 'Nivel no asignado' }}</td>
                                 <td>{{ $c->turno_nombre }}</td>
                                 <td>{{ $c->sede?->descripcion ?? $c->id_campus }}</td>
                                 <td class="text-center">

@@ -47,11 +47,12 @@ class FirebirdController extends Controller
                     ['fb' => 'HORARIOS_DET', 'mysql' => 'horarios_det', 'recommended' => true],
                     ['fb' => 'CURSOS', 'mysql' => 'cursos', 'recommended' => true],
                 ],
-                'Cursos y Materias' => [
+                'Horarios de Cursos' => [
                     ['fb' => 'CURSOS_DET', 'mysql' => 'cursos_det', 'recommended' => true],
                 ],
                 'Inscripciones por Ciclo' => [
                     ['fb' => 'ALUMNOS_GRUPOS', 'mysql' => 'alumnos_grupos', 'recommended' => true],
+                    ['fb' => 'ALUMNOS_CURSOS', 'mysql' => 'alumnos_cursos', 'recommended' => true],
                 ],
                 'Sesiones por Grupo' => [
                     ['fb' => 'CFGSESIONES', 'mysql' => 'sesiones_base', 'recommended' => true],

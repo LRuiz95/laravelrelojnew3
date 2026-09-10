@@ -20,6 +20,8 @@ class Alumno extends Model
 
     protected $fillable = [
         'numero_alumno',
+        'matricula',
+        'matricula_oficial',
         'paterno',
         'materno',
         'nombre',
@@ -33,12 +35,16 @@ class Alumno extends Model
         'estado',
         'cp',
         'telefono',
+        'celular',
         'email',
         'lugar_nacimiento',
         'nacionalidad',
         'nivel',
         'turno',
+        'grado',
+        'subnivel',
         'id_campus',
+        'id_escuela',
         'carrera',
         'plan',
         'fecha_ingreso',
@@ -83,6 +89,11 @@ class Alumno extends Model
     public function inscripciones(): HasMany
     {
         return $this->hasMany(\App\Models\Academia\AlumnoGrupo::class, 'numero_alumno', 'numero_alumno');
+    }
+
+    public function cursosAcademicos(): HasMany
+    {
+        return $this->hasMany(AlumnoCurso::class, 'numero_alumno', 'numero_alumno');
     }
 
     public function sede(): BelongsTo

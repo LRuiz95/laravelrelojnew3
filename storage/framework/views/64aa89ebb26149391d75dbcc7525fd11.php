@@ -39,7 +39,7 @@
                             <tr>
                                 <td class="fw-semibold"><?php echo e($c->clave_curso); ?></td>
                                 <td><?php echo e($c->nombre_curso); ?></td>
-                                <td><?php echo e($c->materias->first()?->materia?->nombre_asignatura ?? 'Materia no asignada'); ?></td>
+                                <td><?php echo e($c->materia?->nombre_asignatura ?? $c->materias->first()?->materia?->nombre_asignatura ?? 'Materia no asignada'); ?></td>
                                 <td class="small">
                                     <?php $__empty_1 = true; $__currentLoopData = $c->docentes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $docente): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                                         <div><?php echo e($docente->nombre_completo ?: $docente->clave_profesor); ?></div>
@@ -47,7 +47,7 @@
                                         <span class="text-muted">Sin maestro asignado</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><?php echo e($c->nivelRel?->descripcion ?? $c->nivel); ?></td>
+                                <td><?php echo e($c->nivelRel?->descripcion ?? $c->plan?->nivelRel?->descripcion ?? $c->nivel ?? 'Nivel no asignado'); ?></td>
                                 <td><?php echo e($c->turno_nombre); ?></td>
                                 <td><?php echo e($c->sede?->descripcion ?? $c->id_campus); ?></td>
                                 <td class="text-center">

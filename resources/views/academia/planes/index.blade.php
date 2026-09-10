@@ -5,9 +5,16 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 mb-0">Planes de Estudio</h1>
-    <a href="{{ route('academia.planes.create') }}" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-1"></i> Nuevo Plan
-    </a>
+    <div class="d-flex align-items-center gap-3">
+        <x-academia.ciclo-selector
+            :ciclo="$ciclo"
+            :ciclos="\App\Models\Academia\Ciclo::orderByDesc('inicial')->orderByDesc('final')->orderByDesc('periodo')->get()"
+            :showBadge="false"
+        />
+        <a href="{{ route('academia.planes.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Nuevo Plan
+        </a>
+    </div>
 </div>
 
 {{-- Filtros --}}
@@ -55,6 +62,7 @@
                             <th>Modalidad</th>
                             <th>Duración</th>
                             <th>Materias</th>
+                            <th>Ciclos donde se usa</th>
                             <th>Estado</th>
                             <th class="text-end">Acciones</th>
                         </tr>
@@ -68,6 +76,14 @@
                                 <td>{{ $plan->modalidad }}</td>
                                 <td>{{ $plan->duracion_semestres }} semestres</td>
                                 <td>{{ $plan->materias_count }}</td>
+                                <td>
+                                    @php
+                                        $ciclosCount = $ciclosPorPlan[$plan->id_plan] ?? 0;
+                                    @endphp
+                                    <span class="badge {{ $ciclosCount > 0 ? 'bg-success' : 'bg-secondary' }} rounded-pill">
+                                        {{ $ciclosCount }} {{ $ciclosCount === 1 ? 'ciclo' : 'ciclos' }}
+                                    </span>
+                                </td>
                                 <td>
                                     <span class="badge badge--status {{ $plan->activo ? 'badge--active' : 'badge--inactive' }}">
                                         {{ $plan->activo ? 'Activo' : 'Inactivo' }}

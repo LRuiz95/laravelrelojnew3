@@ -5,11 +5,10 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 mb-0">Alumnos</h1>
-    <div class="btn-group btn-group-sm">
-        <a href="{{ route('academia.ciclos.index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-calendar me-1"></i> Cambiar ciclo
-        </a>
-    </div>
+    <x-academia.ciclo-selector
+        :ciclo="$ciclo"
+        :ciclos="\App\Models\Academia\Ciclo::orderByDesc('inicial')->orderByDesc('final')->orderByDesc('periodo')->get()"
+    />
 </div>
 
 {{-- Filtros --}}
@@ -71,6 +70,7 @@
                         <tr>
                             <th>Control</th>
                             <th>Nombre</th>
+                            <th>Grupo</th>
                             <th>CURP</th>
                             <th>Nivel</th>
                             <th>Turno</th>
@@ -87,6 +87,16 @@
                                     <a href="{{ route('academia.alumnos.show', $alumno) }}" class="text-decoration-none fw-semibold">
                                         {{ $alumno->nombre_completo }}
                                     </a>
+                                </td>
+                                <td>
+                                    @php
+                                        $inscripcion = $alumno->inscripciones->first();
+                                    @endphp
+                                    @if ($inscripcion && $inscripcion->grupo)
+                                        <span class="badge bg-info text-dark">{{ $inscripcion->grupo->codigo_grupo }}</span>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
                                 </td>
                                 <td class="small">{{ $alumno->curp }}</td>
                                 <td>{{ $alumno->nivel }}</td>

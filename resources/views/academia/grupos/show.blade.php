@@ -50,11 +50,11 @@
                                     <td>{{ $alumnoGrupo->nombre_completo }}</td>
                                     <td class="small">{{ $alumnoGrupo->curp }}</td>
                                     <td>
-                                        <span class="badge badge--status {{ $alumnoGrupo->pivot->estatus === 'INSCRITO' ? 'badge--active' : 'badge--inactive' }}">
-                                            {{ $alumnoGrupo->pivot->estatus }}
+                                        <span class="badge badge--status {{ ($alumnoGrupo->pivot_estatus ?? null) === 'INSCRITO' ? 'badge--active' : 'badge--inactive' }}">
+                                            {{ $alumnoGrupo->pivot_estatus ?? '—' }}
                                         </span>
                                     </td>
-                                    <td class="small text-muted">{{ $alumnoGrupo->pivot->fecha_inscripcion?->format('d/m/Y') }}</td>
+                                    <td class="small text-muted">{{ $alumnoGrupo->pivot_fecha_inscripcion ? \Carbon\Carbon::parse($alumnoGrupo->pivot_fecha_inscripcion)->format('d/m/Y') : '—' }}</td>
                                     <td class="text-end">
                                         <a href="{{ route('academia.alumnos.show', $alumnoGrupo) }}" class="btn btn-sm btn-outline-primary">Ver</a>
                                     </td>

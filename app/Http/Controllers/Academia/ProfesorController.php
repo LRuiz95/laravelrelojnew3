@@ -26,7 +26,14 @@ class ProfesorController extends Controller
     {
         $ciclo = $this->cicloService->resolve($request);
         
+        // Toggle: "todos" muestra catálogo completo, default muestra solo con horarios en ciclo
+        $soloCiclo = $request->boolean('solo_ciclo', true);
+        
         $query = Profesor::query();
+        
+        if ($soloCiclo) {
+            $query->conHorariosEnCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo);
+        }
         
         if ($request->filled('buscar')) {
             $buscar = $request->get('buscar');
@@ -57,8 +64,9 @@ class ProfesorController extends Controller
             ->paginate(25);
 
         return view('academia.profesores.index', [
-            'ciclo' => $this->cicloService->resolve($request),
+            'ciclo' => $ciclo,
             'profesores' => $profesores,
+            'soloCiclo' => $soloCiclo,
             'statusOptions' => ['A' => 'Activo', 'B' => 'Baja'],
             'origenOptions' => ['HD' => 'Hora Docente (PTC)', 'CA' => 'Carga Asignada (PA)'],
         ]);

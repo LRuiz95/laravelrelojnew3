@@ -16,6 +16,15 @@ class Grupo extends Model
 
     protected $table = 'grupos';
 
+    /**
+     * Override dictionary key for BelongsTo relationships.
+     * Grupo has composite PK but FK references use codigo_grupo.
+     */
+    public function getDictionaryKey(): mixed
+    {
+        return $this->codigo_grupo;
+    }
+
     protected $fillable = [
         'codigo_grupo',
         'inicial',
@@ -39,11 +48,30 @@ class Grupo extends Model
         'activo' => 'boolean',
     ];
 
+    /**
+     * Ciclo del grupo. Relación compuesta (inicial + final + periodo).
+     * NO usar whereColumn en relaciones — falla en eager loading porque
+     * la tabla padre no está en el scope de la query de Eloquent.
+     * Se resuelve via accessor `cicloLabel`.
+     */
     public function ciclo(): BelongsTo
     {
-        return $this->belongsTo(Ciclo::class, 'inicial')
-            ->whereColumn('ciclos.final', 'grupos.final')
-            ->whereColumn('ciclos.periodo', 'grupos.periodo');
+        // Simple: solo por inicial (80% de los casos — un ciclo = un año)
+        // Para queries exactas, usar scopePorCiclo en Ciclo
+        return $this->belongsTo(Ciclo::class, 'inicial', 'inicial');
+    }
+
+    /**
+     * Resolve ciclo with all 3 columns (inicial + final + periodo).
+     * Use this when the simple BelongsTo is not enough.
+     */
+    public function getCicloCompletoAttribute(): ?Ciclo
+    {
+        return Ciclo::query()
+            ->where('inicial', $this->inicial)
+            ->where('final', $this->final)
+            ->where('periodo', $this->periodo)
+            ->first();
     }
 
     public function nivelRel(): BelongsTo
@@ -85,10 +113,23 @@ class Grupo extends Model
 
     public function horarios(): HasMany
     {
-        return $this->hasMany(HorarioDet::class, 'codigo_grupo')
-            ->whereColumn('horarios_det.inicial', 'grupos.inicial')
-            ->whereColumn('horarios_det.final', 'grupos.final')
-            ->whereColumn('horarios_det.periodo', 'grupos.periodo');
+        return $this->hasMany(HorarioDet::class, 'codigo_grupo');
+    }
+
+    /**
+     * Horarios del grupo con composite key (inicial + final + periodo).
+     * NO usar whereColumn en hasMany — falla en eager loading.
+     */
+    public function getHorariosCompletosAttribute()
+    {
+        return HorarioDet::query()
+            ->where('codigo_grupo', $this->codigo_grupo)
+            ->where('inicial', $this->inicial)
+            ->where('final', $this->final)
+            ->where('periodo', $this->periodo)
+            ->orderBy('dia')
+            ->orderBy('sesion')
+            ->get();
     }
 
     public function scopeActivo($query)

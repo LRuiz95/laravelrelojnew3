@@ -19,23 +19,26 @@ class CycleDirectSync implements SyncStrategyInterface
      * Orden respetando foreign keys: CICLOS es raíz, GRUPOS depende de CICLOS,
      * CURSOS de CICLOS, CURSOS_DET de CURSOS, ALUMNOS_GRUPOS de ALUMNOS+GRUPOS,
      * HORARIOS_DET de CICLOS+GRUPOS+MATERIAS+PROFESORES.
+     *
+     * NOTA: ALUMNOS_GRUPOS y ALUMNOS_NIVELES requieren que ALUMNOS existan primero.
+     * Se movieron a FASE 2 después de sincronizar ALUMNOS.
      */
     protected const TABLAS_CICLO_DIRECTO = [
         'CICLOS',        // Raíz: sin FKs a otras tablas académicas
         'GRUPOS',        // Depende de: CICLOS, NIVELES, TURNOS, SEDES
         'CURSOS',        // Depende de: CICLOS
         'CURSOS_DET',    // Depende de: CURSOS, MATERIAS
-        'ALUMNOS_GRUPOS', // Depende de: ALUMNOS, GRUPOS — filtrado por ciclo
         'HORARIOS_DET',  // Depende de: CICLOS, GRUPOS, PROFESORES, MATERIAS, SEDES
     ];
 
     /**
-     * Alumnos: solo ALUMNOS_NIVELES (para obtener IDs) y ALUMNOS (datos completos).
+     * Alumnos: ALUMNOS primero (sin FK), luego ALUMNOS_NIVELES y ALUMNOS_GRUPOS.
      * ALUMNOS_KARDEX se excluyó del sync — no se sincroniza.
      */
     protected const TABLAS_ALUMNOS_CICLO = [
-        'ALUMNOS_NIVELES',
         'ALUMNOS',
+        'ALUMNOS_NIVELES',
+        'ALUMNOS_GRUPOS',
     ];
 
     /**
@@ -54,8 +57,16 @@ class CycleDirectSync implements SyncStrategyInterface
             'CODIGO_GRUPO' => 'codigo_grupo',
         ],
         'CURSOS_DET' => [
-            'CLAVEASIGNATURA' => 'clave_asignatura',
-            'CODIGO_CURSO'    => 'clave_curso',
+            'CODIGO_CURSO' => 'curso_id',    // Resolved via COMPOSITE_FK_RESOLVE
+            'DIA'          => 'dia',
+            'HORA_INICIAL' => 'hora_inicial',
+            'HORA_FINAL'   => 'hora_final',
+            'ID_CAMPUS'    => 'id_campus',
+            'EDIFICIO'     => 'edificio',
+            'AULA'         => 'aula',
+            'INICIAL'      => 'inicial',      // For composite FK resolution
+            'FINAL'        => 'final',
+            'PERIODO'      => 'periodo',
         ],
         'GRUPOS' => [
             'CODIGO_GRUPO' => 'codigo_grupo',
@@ -77,13 +88,59 @@ class CycleDirectSync implements SyncStrategyInterface
     ];
 
     /**
+     * Valores por defecto para columnas que pueden venir NULL de Firebird
+     * pero son NOT NULL en MySQL.
+     */
+    protected const COLUMN_DEFAULTS = [
+        'HORARIOS_DET' => [
+            'horas_teoria_practica' => 0,
+        ],
+    ];
+
+    /**
+     * Columnas que requieren validación FK contra otra tabla.
+     * Si el valor no existe en la tabla referenciada, se establece NULL.
+     */
+    protected const FK_VALIDATION = [
+        'HORARIOS_DET' => [
+            'id_campus' => 'sedes',
+            'clave_profesor' => 'profesores',
+            'codigo_grupo' => 'grupos',
+            'clave_asignatura' => 'materias',
+        ],
+        'GRUPOS' => [
+            'id_campus' => 'sedes',
+        ],
+        'CURSOS' => [
+            'id_campus' => 'sedes',
+        ],
+        'CURSOS_DET' => [
+            'id_campus' => 'sedes',
+        ],
+    ];
+
+    /**
+     * Resolución de FKs compuestas: tabla MySQL → columnas Firebird que componen la FK → tabla referenciada + columnas.
+     * Se usa para resolver curso_id desde (CODIGO_CURSO, INICIAL, FINAL, PERIODO).
+     */
+    protected const COMPOSITE_FK_RESOLVE = [
+        'CURSOS_DET' => [
+            'column' => 'curso_id',  // Columna MySQL a resolver
+            'fb_keys' => ['CODIGO_CURSO', 'INICIAL', 'FINAL', 'PERIODO'],  // Columnas Firebird
+            'ref_table' => 'cursos',  // Tabla referenciada
+            'ref_columns' => ['clave_curso', 'inicial', 'final', 'periodo'],  // Columnas MySQL en tabla referenciada
+            'ref_id' => 'id',  // Columna ID de la tabla referenciada
+        ],
+    ];
+
+    /**
      * PK lógica por tabla (no el id auto-increment de Laravel)
      */
     protected const LOGICAL_PK = [
         'GRUPOS'          => ['codigo_grupo', 'inicial', 'final', 'periodo'],
         'HORARIOS_DET'    => ['inicial', 'final', 'periodo', 'codigo_grupo', 'clave_profesor', 'clave_asignatura', 'dia', 'sesion'],
         'CURSOS'          => ['inicial', 'final', 'periodo', 'clave_curso'],
-        'CURSOS_DET'      => ['inicial', 'final', 'periodo', 'clave_curso', 'clave_asignatura'],
+        'CURSOS_DET'      => ['curso_id', 'dia', 'hora_inicial'],
         'CICLOS'          => ['inicial', 'final', 'periodo'],
         'ALUMNOS_NIVELES' => ['numero_alumno', 'inicial', 'final', 'periodo'],
         'ALUMNOS'         => ['numero_alumno'],
@@ -136,38 +193,47 @@ class CycleDirectSync implements SyncStrategyInterface
         // FASE 2: Alumnos por ciclo
         $log[] = ['tipo' => 'info', 'msg' => "--- FASE 2: Alumnos por ciclo ---"];
 
-        // 2.1 ALUMNOS_NIVELES (con filtro ciclo) → obtener IDs de alumnos
-        $tabla = 'ALUMNOS_NIVELES';
-        $result = $this->syncCycleTable(
-            $firebirdReader, $mysql, $tabla, $I, $F, $P, $deleteOrphans, $skipExisting
-        );
-        $log = array_merge($log, $result['log']);
-        $errors = array_merge($errors, $result['errors']);
-        $totals['created'] += $result['created'];
-        $totals['updated'] += $result['updated'];
-        $totals['deleted'] += $result['deleted'];
-        $totals['processed'] += $result['processed'];
-
-        // Extraer IDs de alumnos
-        $alumnoIds = $this->getAlumnoIdsFromNiveles($mysql, $I, $F, $P);
-        $log[] = ['tipo' => 'info', 'msg' => "Alumnos encontrados: " . count($alumnoIds)];
+        // 2.1 Obtener IDs de alumnos DIRECTAMENTE de Firebird (no de MySQL)
+        //     ALUMNOS_NIVELES en Firebird tiene los IDs, pero en MySQL no existen aún
+        //     porque ALUMNOS no se ha sincronizado (chicken-and-egg).
+        $alumnoIds = $this->getAlumnoIdsFromFirebird($firebirdReader, $I, $F, $P);
+        $log[] = ['tipo' => 'info', 'msg' => "Alumnos encontrados en FB: " . count($alumnoIds)];
 
         if (empty($alumnoIds)) {
-            $log[] = ['tipo' => 'skip', 'msg' => "No hay alumnos, saltando ALUMNOS"];
+            $log[] = ['tipo' => 'skip', 'msg' => "No hay alumnos en Firebird, saltando ALUMNOS"];
         } else {
-            // 2.2 ALUMNOS (SIN filtro ciclo - datos completos del alumno)
-            $tablasAlumnosSinNiveles = array_diff($tablasAlumnos, ['ALUMNOS_NIVELES']);
-            foreach ($tablasAlumnosSinNiveles as $tabla) {
-                $result = $this->syncTableWithoutCycleFilter(
-                    $firebirdReader, $mysql, $tabla, 'NUMEROALUMNO', $alumnoIds, $deleteOrphans, $skipExisting
-                );
-                $log = array_merge($log, $result['log']);
-                $errors = array_merge($errors, $result['errors']);
-                $totals['created'] += $result['created'];
-                $totals['updated'] += $result['updated'];
-                $totals['deleted'] += $result['deleted'];
-                $totals['processed'] += $result['processed'];
-            }
+            // 2.2 ALUMNOS (SIN filtro ciclo — datos completos del alumno, necesita IDs de FB)
+            $result = $this->syncTableWithoutCycleFilter(
+                $firebirdReader, $mysql, 'ALUMNOS', 'NUMEROALUMNO', $alumnoIds, $deleteOrphans, $skipExisting
+            );
+            $log = array_merge($log, $result['log']);
+            $errors = array_merge($errors, $result['errors']);
+            $totals['created'] += $result['created'];
+            $totals['updated'] += $result['updated'];
+            $totals['deleted'] += $result['deleted'];
+            $totals['processed'] += $result['processed'];
+
+            // 2.3 ALUMNOS_NIVELES (con filtro ciclo — ahora ALUMNOS ya existe en MySQL)
+            $result = $this->syncCycleTable(
+                $firebirdReader, $mysql, 'ALUMNOS_NIVELES', $I, $F, $P, $deleteOrphans, $skipExisting
+            );
+            $log = array_merge($log, $result['log']);
+            $errors = array_merge($errors, $result['errors']);
+            $totals['created'] += $result['created'];
+            $totals['updated'] += $result['updated'];
+            $totals['deleted'] += $result['deleted'];
+            $totals['processed'] += $result['processed'];
+
+            // 2.4 ALUMNOS_GRUPOS (con filtro ciclo — ahora ALUMNOS y GRUPOS ya existen)
+            $result = $this->syncCycleTable(
+                $firebirdReader, $mysql, 'ALUMNOS_GRUPOS', $I, $F, $P, $deleteOrphans, $skipExisting
+            );
+            $log = array_merge($log, $result['log']);
+            $errors = array_merge($errors, $result['errors']);
+            $totals['created'] += $result['created'];
+            $totals['updated'] += $result['updated'];
+            $totals['deleted'] += $result['deleted'];
+            $totals['processed'] += $result['processed'];
         }
 
         $log[] = ['tipo' => 'info', 'msg' => "=== FIN CICLO {$I}-{$F}-{$P} ==="];
@@ -321,9 +387,50 @@ class CycleDirectSync implements SyncStrategyInterface
         }
 
         $mappedFb = [];
+        $defaults = self::COLUMN_DEFAULTS[$tabla] ?? [];
+        $fkValidation = self::FK_VALIDATION[$tabla] ?? [];
+        $fkCache = [];
+        $compositeFk = self::COMPOSITE_FK_RESOLVE[$tabla] ?? null;
+        $compositeFkMap = [];
+
+        // Precargar valores FK válidos
+        foreach ($fkValidation as $column => $refTable) {
+            $fkCache[$column] = $this->getValidFkValues($mysql, $refTable, $column);
+        }
+
+        // Precargar mapa de FK compuesta (ej: CURSOS_DET → curso_id desde cursos)
+        if ($compositeFk) {
+            $compositeFkMap = $this->buildCompositeFkMap(
+                $mysql, $compositeFk['ref_table'], $compositeFk['ref_columns'],
+                $compositeFk['ref_id'], $compositeFk['fb_keys']
+            );
+            $log[] = ['tipo' => 'info', 'msg' => "{$tabla}: " . count($compositeFkMap) . " FKs compuestas resueltas"];
+        }
+
         foreach ($datosFb as $row) {
             $m = [];
-            foreach ($fbMap as $mk => $fk) $m[$mk] = $row[$fk] ?? null;
+            foreach ($fbMap as $mk => $fk) {
+                $val = $row[$fk] ?? null;
+                // Aplicar default si el valor es NULL y hay un default definido
+                if ($val === null && isset($defaults[$mk])) {
+                    $val = $defaults[$mk];
+                }
+                // Validar FK: si el valor no existe en la tabla referenciada, set NULL
+                if ($val !== null && isset($fkCache[$mk]) && !in_array((string)$val, $fkCache[$mk])) {
+                    $val = null;
+                }
+                $m[$mk] = $val;
+            }
+
+            // Resolver FK compuesta (ej: curso_id desde CODIGO_CURSO+INICIAL+FINAL+PERIODO)
+            if ($compositeFk && !empty($compositeFk['column'])) {
+                $fkKey = '';
+                foreach ($compositeFk['fb_keys'] as $fbKey) {
+                    $fkKey .= '|' . ($row[$fbKey] ?? '');
+                }
+                $m[$compositeFk['column']] = $compositeFkMap[$fkKey] ?? null;
+            }
+
             $mappedFb[] = $m;
         }
 
@@ -359,6 +466,22 @@ class CycleDirectSync implements SyncStrategyInterface
             $pkKey = '';
             foreach ($pkCols as $pk) $pkKey .= '|' . ($row[$pk] ?? '');
             $existing[$pkKey] = $row;
+        }
+
+        // Filtrar registros con PK NULL después de FK validation (no se pueden insertar)
+        $beforeCount = count($mappedFb);
+        $mappedFb = array_filter($mappedFb, function ($row) use ($pkCols) {
+            foreach ($pkCols as $pk) {
+                if ($row[$pk] === null || $row[$pk] === '') {
+                    return false;
+                }
+            }
+            return true;
+        });
+        $mappedFb = array_values($mappedFb);
+        $filteredCount = $beforeCount - count($mappedFb);
+        if ($filteredCount > 0) {
+            $log[] = ['tipo' => 'info', 'msg' => "{$tabla}: {$filteredCount} registros con PK NULL/inválida filtrados"];
         }
 
         $toInsert = [];
@@ -461,6 +584,31 @@ class CycleDirectSync implements SyncStrategyInterface
         return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'numero_alumno');
     }
 
+    /**
+     * Obtener IDs de alumnos DIRECTAMENTE de Firebird (ALUMNOS_NIVELES).
+     * Evita el chicken-and-egg: no necesita que ALUMNOS exista en MySQL primero.
+     */
+    protected function getAlumnoIdsFromFirebird(FirebirdReader $fbReader, int $I, int $F, int $P): array
+    {
+        try {
+            $fbCols = $fbReader->getColumns('ALUMNOS_NIVELES');
+            $datos = $fbReader->fetchRows('ALUMNOS_NIVELES', $fbCols, "INICIAL = ? AND FINAL = ? AND PERIODO = ?", [$I, $F, $P]);
+
+            // Extraer NUMEROALUMNO único
+            $ids = [];
+            foreach ($datos as $row) {
+                $num = $row['NUMEROALUMNO'] ?? null;
+                if ($num !== null && $num !== '') {
+                    $ids[] = (string) $num;
+                }
+            }
+            return array_unique($ids);
+        } catch (\Throwable $e) {
+            Log::warning("No se pudieron obtener IDs de alumnos desde Firebird: " . $e->getMessage());
+            return [];
+        }
+    }
+
     protected function parseCiclo(string $ciclo): array
     {
         $parts = explode('-', $ciclo);
@@ -483,5 +631,59 @@ class CycleDirectSync implements SyncStrategyInterface
             'created' => 0, 'updated' => 0, 'deleted' => 0, 'processed' => 0, 'total' => 0,
             'log' => [['tipo' => 'error', 'msg' => $msg]], 'errors' => [$msg],
         ];
+    }
+
+    /**
+     * Obtener valores válidos de una columna FK para validar referencias.
+     */
+    protected function getValidFkValues(PDO $mysql, string $table, string $column): array
+    {
+        try {
+            $stmt = $mysql->query("SELECT DISTINCT `{$column}` FROM `{$table}` WHERE `{$column}` IS NOT NULL");
+            return array_map('strval', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), $column));
+        } catch (\Throwable $e) {
+            Log::warning("No se pudieron obtener valores FK de {$table}.{$column}: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Construir mapa de resolución de FK compuesta.
+     * Retorna array donde la key es la composite key de Firebird (pipe-separated)
+     * y el value es el ID de la tabla referenciada.
+     *
+     * Ejemplo: CURSOS_DET
+     *   ref_table: cursos
+     *   ref_columns: [clave_curso, inicial, final, periodo]
+     *   ref_id: id
+     *   fb_keys: [CODIGO_CURSO, INICIAL, FINAL, PERIODO]
+     *
+     * Retorna: ['MAT-01|1|2025|1' => 42, ...]
+     */
+    protected function buildCompositeFkMap(
+        PDO $mysql,
+        string $refTable,
+        array $refColumns,
+        string $refId,
+        array $fbKeys
+    ): array {
+        try {
+            $selectCols = array_merge([$refId], $refColumns);
+            $selectSql = implode(', ', array_map(fn($c) => "`{$c}`", $selectCols));
+            $stmt = $mysql->query("SELECT {$selectSql} FROM `{$refTable}`");
+
+            $map = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $key = '';
+                foreach ($refColumns as $col) {
+                    $key .= '|' . ($row[$col] ?? '');
+                }
+                $map[$key] = $row[$refId];
+            }
+            return $map;
+        } catch (\Throwable $e) {
+            Log::warning("No se pudo construir mapa FK compuesta para {$refTable}: " . $e->getMessage());
+            return [];
+        }
     }
 }

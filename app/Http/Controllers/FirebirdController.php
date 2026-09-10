@@ -31,12 +31,10 @@ class FirebirdController extends Controller
                     ['fb' => 'CFGPLANES_DET', 'mysql' => 'materias', 'recommended' => true],
                 ],
                 'Configuración Académica' => [
-                    ['fb' => 'CFGSESIONES', 'mysql' => 'sesiones_base', 'recommended' => true],
                     ['fb' => 'CFGTIPOSEVALUACION', 'mysql' => 'metodos_eval', 'recommended' => true],
                     ['fb' => 'EMPLEADOS_CONTRATOS_CAT', 'mysql' => 'contratos', 'recommended' => true],
                 ],
                 'Catálogos Principales' => [
-                    ['fb' => 'ALUMNOS', 'mysql' => 'alumnos', 'recommended' => true],
                     ['fb' => 'PROFESORES', 'mysql' => 'profesores', 'recommended' => true],
                 ],
                 'Nómina' => [
@@ -54,6 +52,9 @@ class FirebirdController extends Controller
                 ],
                 'Inscripciones por Ciclo' => [
                     ['fb' => 'ALUMNOS_GRUPOS', 'mysql' => 'alumnos_grupos', 'recommended' => true],
+                ],
+                'Sesiones por Grupo' => [
+                    ['fb' => 'CFGSESIONES', 'mysql' => 'sesiones_base', 'recommended' => true],
                 ],
             ],
             'alumnos' => [

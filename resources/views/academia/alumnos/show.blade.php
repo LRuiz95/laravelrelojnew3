@@ -90,11 +90,11 @@
                                 </td>
                                 <td>{{ $ins->grupo->inscritos }}</td>
                                 <td>
-                                    <span class="badge badge--status {{ $ins->pivot->estatus === 'INSCRITO' ? 'badge--active' : 'badge--inactive' }}">
-                                        {{ $ins->pivot->estatus }}
+                                    <span class="badge badge--status {{ ($ins->estatus ?? null) === 'INSCRITO' ? 'badge--active' : 'badge--inactive' }}">
+                                        {{ $ins->estatus ?? '—' }}
                                     </span>
                                 </td>
-                                <td class="small text-muted">{{ $ins->pivot->fecha_inscripcion?->format('d/m/Y') }}</td>
+                                <td class="small text-muted">{{ $ins->fecha_inscripcion?->format('d/m/Y') }}</td>
                             </tr>
                         @endforeach
                     </tbody>

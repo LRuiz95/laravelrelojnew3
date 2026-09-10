@@ -48,17 +48,37 @@ class HorarioDet extends Model
 
     public function ciclo(): BelongsTo
     {
-        return $this->belongsTo(Ciclo::class, 'inicial')
-            ->whereColumn('ciclos.final', 'horarios_det.final')
-            ->whereColumn('ciclos.periodo', 'horarios_det.periodo');
+        return $this->belongsTo(Ciclo::class, 'inicial', 'inicial');
+    }
+
+    /**
+     * Resolve ciclo with all 3 columns (inicial + final + periodo).
+     */
+    public function getCicloCompletoAttribute(): ?Ciclo
+    {
+        return Ciclo::query()
+            ->where('inicial', $this->inicial)
+            ->where('final', $this->final)
+            ->where('periodo', $this->periodo)
+            ->first();
     }
 
     public function grupo(): BelongsTo
     {
-        return $this->belongsTo(Grupo::class, 'codigo_grupo')
-            ->whereColumn('grupos.inicial', 'horarios_det.inicial')
-            ->whereColumn('grupos.final', 'horarios_det.final')
-            ->whereColumn('grupos.periodo', 'horarios_det.periodo');
+        return $this->belongsTo(Grupo::class, 'codigo_grupo', 'codigo_grupo');
+    }
+
+    /**
+     * Resolve grupo with composite key (codigo_grupo + inicial + final + periodo).
+     */
+    public function getGrupoCompletoAttribute(): ?Grupo
+    {
+        return Grupo::query()
+            ->where('codigo_grupo', $this->codigo_grupo)
+            ->where('inicial', $this->inicial)
+            ->where('final', $this->final)
+            ->where('periodo', $this->periodo)
+            ->first();
     }
 
     public function profesor(): BelongsTo

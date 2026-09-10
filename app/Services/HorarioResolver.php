@@ -32,14 +32,20 @@ class HorarioResolver
         $horarios = HorarioDet::with([
             'grupo', 'profesor', 'materia', 'sede', 'sesionBase'
         ])
-            ->where('inicial', $inicial)
-            ->where('final', $final)
-            ->where('periodo', $periodo)
-            ->where('nivel', $nivel)
-            ->where('turno', $turno)
-            ->where('dia', $dia)
-            ->where('activo', true)
-            ->orderBy('sesion')
+            ->join('grupos', function ($join) {
+                $join->on('horarios_det.codigo_grupo', '=', 'grupos.codigo_grupo')
+                    ->on('horarios_det.inicial', '=', 'grupos.inicial')
+                    ->on('horarios_det.final', '=', 'grupos.final')
+                    ->on('horarios_det.periodo', '=', 'grupos.periodo');
+            })
+            ->where('horarios_det.inicial', $inicial)
+            ->where('horarios_det.final', $final)
+            ->where('horarios_det.periodo', $periodo)
+            ->where('grupos.nivel', $nivel)
+            ->where('grupos.turno', $turno)
+            ->where('horarios_det.dia', $dia)
+            ->where('horarios_det.activo', true)
+            ->orderBy('horarios_det.sesion')
             ->get();
 
         return $horarios->map(function (HorarioDet $h) use ($fechaClase) {
@@ -109,6 +115,12 @@ class HorarioResolver
         ];
 
         $stats = DB::table('horarios_det as h')
+            ->leftJoin('grupos as g', function ($join) {
+                $join->on('h.codigo_grupo', '=', 'g.codigo_grupo')
+                    ->on('h.inicial', '=', 'g.inicial')
+                    ->on('h.final', '=', 'g.final')
+                    ->on('h.periodo', '=', 'g.periodo');
+            })
             ->leftJoin('alumnos_kardex as ca', function ($join) use ($fechaClase) {
                 $join->on('h.clave_asignatura', '=', 'ca.clave_asignatura')
                     ->on('h.inicial', '=', 'ca.inicial')
@@ -119,8 +131,8 @@ class HorarioResolver
             ->where('h.inicial', $inicial)
             ->where('h.final', $final)
             ->where('h.periodo', $periodo)
-            ->where('h.nivel', $nivel)
-            ->where('h.turno', $turno)
+            ->where('g.nivel', $nivel)
+            ->where('g.turno', $turno)
             ->where('h.dia', $dia)
             ->where('h.activo', true)
             ->selectRaw('

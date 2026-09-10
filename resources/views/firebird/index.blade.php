@@ -157,17 +157,17 @@
                             <div class="fb-step is-active" data-step="base">
                                 <span class="fb-step-num">1</span>
                                 <span class="fb-step-label">Catálogos Base</span>
-                                <span class="badge bg-primary-subtle text-primary ms-auto" data-mini="base">0/{{ count($catalogGroups['base']['Sedes y Configuración'] ?? []) + count($catalogGroups['base']['Planes y Materias'] ?? []) + count($catalogGroups['base']['Configuración Académica'] ?? []) + count($catalogGroups['base']['Catálogos Principales'] ?? []) }}</span>
+                                <span class="badge bg-primary-subtle text-primary ms-auto" data-mini="base">0/{{ collect($catalogGroups['base'])->flatten(1)->count() }}</span>
                             </div>
                             <div class="fb-step" data-step="ciclo">
                                 <span class="fb-step-num">2</span>
                                 <span class="fb-step-label">Por Ciclo</span>
-                                <span class="badge bg-secondary-subtle text-secondary ms-auto" data-mini="ciclo">0/{{ count($catalogGroups['ciclo']['Grupos y Horarios'] ?? []) + count($catalogGroups['ciclo']['Cursos y Materias'] ?? []) }}</span>
+                                <span class="badge bg-secondary-subtle text-secondary ms-auto" data-mini="ciclo">0/{{ collect($catalogGroups['ciclo'])->flatten(1)->count() }}</span>
                             </div>
                             <div class="fb-step" data-step="alumnos">
                                 <span class="fb-step-num">3</span>
                                 <span class="fb-step-label">Alumnos</span>
-                                <span class="badge bg-secondary-subtle text-secondary ms-auto" data-mini="alumnos">0/{{ count($catalogGroups['alumnos']['Datos de Alumnos'] ?? []) }}</span>
+                                <span class="badge bg-secondary-subtle text-secondary ms-auto" data-mini="alumnos">0/{{ collect($catalogGroups['alumnos'])->flatten(1)->count() }}</span>
                             </div>
                         </div>
 
@@ -181,7 +181,7 @@
                                     <span>Catálogos Base</span>
                                     <small>(independientes de ciclo)</small>
                                 </label>
-                                <span class="fb-counter is-empty" data-counter="base" aria-live="polite">0 / {{ count($catalogGroups['base']['Sedes y Configuración'] ?? []) + count($catalogGroups['base']['Planes y Materias'] ?? []) + count($catalogGroups['base']['Configuración Académica'] ?? []) + count($catalogGroups['base']['Catálogos Principales'] ?? []) }}</span>
+                                <span class="fb-counter is-empty" data-counter="base" aria-live="polite">0 / {{ collect($catalogGroups['base'])->flatten(1)->count() }}</span>
                             </div>
                             <div id="group-base" class="row g-2">
                                 @foreach($catalogGroups['base'] as $groupName => $tables)
@@ -220,7 +220,7 @@
                                     <span>Por Ciclo</span>
                                     <small>(requieren filtro)</small>
                                 </label>
-                                <span class="fb-counter is-empty" data-counter="ciclo" aria-live="polite">0 / {{ count($catalogGroups['ciclo']['Grupos y Horarios'] ?? []) + count($catalogGroups['ciclo']['Cursos y Materias'] ?? []) }}</span>
+                                <span class="fb-counter is-empty" data-counter="ciclo" aria-live="polite">0 / {{ collect($catalogGroups['ciclo'])->flatten(1)->count() }}</span>
                             </div>
 
                             {{-- Selector ciclo integrado en la fase --}}
@@ -277,7 +277,7 @@
                                     <span>Alumnos</span>
                                     <small>(requieren ciclo + IDs)</small>
                                 </label>
-                                <span class="fb-counter is-empty" data-counter="alumnos" aria-live="polite">0 / {{ count($catalogGroups['alumnos']['Datos de Alumnos'] ?? []) }}</span>
+                                <span class="fb-counter is-empty" data-counter="alumnos" aria-live="polite">0 / {{ collect($catalogGroups['alumnos'])->flatten(1)->count() }}</span>
                             </div>
                             <div data-ciclo-banner hidden>
                                 <i class="bi bi-info-circle"></i> Requiere ciclo + alumnos inscritos. Si sincronizas sin ciclo traerá 0 filas.
@@ -523,6 +523,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'ALUMNOS_GRUPOS':  ['ALUMNOS', 'GRUPOS'],
         'HORARIOS_DET':    ['CICLOS', 'GRUPOS', 'PROFESORES', 'CFGPLANES_DET', 'CFGSEDES'],
         'ALUMNOS_NIVELES': ['ALUMNOS'],
+        'CFGSESIONES':     ['CFGNIVELES', 'CFGTURNOS'],
     };
 
     // Friendly names for display

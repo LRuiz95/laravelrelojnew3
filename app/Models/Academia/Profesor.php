@@ -83,6 +83,26 @@ class Profesor extends Model
         return $query->where('departamento', $departamento);
     }
 
+    /**
+     * Profesores que tienen al menos un horario en el ciclo dado.
+     */
+    public function scopeConHorariosEnCiclo($query, int $inicial, int $final, int $periodo)
+    {
+        return $query->whereHas('horarios', fn ($q) => $q
+            ->where('inicial', $inicial)
+            ->where('final', $final)
+            ->where('periodo', $periodo));
+    }
+
+    /**
+     * Todos los profesores (sin filtros adicionales).
+     * Útil para el toggle "Todos" vs "Con horarios en ciclo".
+     */
+    public function scopeTodos($query)
+    {
+        return $query;
+    }
+
     protected function nombreCompleto(): Attribute
     {
         return Attribute::make(

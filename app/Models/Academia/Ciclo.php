@@ -34,32 +34,64 @@ class Ciclo extends Model
         'activo' => 'boolean',
     ];
 
+    /**
+     * Relaciones hasMany simples (sin whereColumn — falla en eager loading).
+     * Para composite key, usar los accessors get*CompletosAttribute.
+     */
     public function periodos(): HasMany
     {
-        return $this->hasMany(Curso::class, 'inicial')
-            ->whereColumn('cursos.final', 'ciclos.final')
-            ->whereColumn('cursos.periodo', 'ciclos.periodo');
+        return $this->hasMany(Curso::class, 'inicial');
     }
 
     public function cursos(): HasMany
     {
-        return $this->hasMany(Curso::class, 'inicial')
-            ->whereColumn('cursos.final', 'ciclos.final')
-            ->whereColumn('cursos.periodo', 'ciclos.periodo');
+        return $this->hasMany(Curso::class, 'inicial');
     }
 
     public function grupos(): HasMany
     {
-        return $this->hasMany(Grupo::class, 'inicial')
-            ->whereColumn('grupos.final', 'ciclos.final')
-            ->whereColumn('grupos.periodo', 'ciclos.periodo');
+        return $this->hasMany(Grupo::class, 'inicial');
     }
 
     public function horarios(): HasMany
     {
-        return $this->hasMany(HorarioDet::class, 'inicial')
-            ->whereColumn('horarios_det.final', 'ciclos.final')
-            ->whereColumn('horarios_det.periodo', 'ciclos.periodo');
+        return $this->hasMany(HorarioDet::class, 'inicial');
+    }
+
+    /**
+     * Cursos con composite key (inicial + final + periodo).
+     */
+    public function getCursosCompletosAttribute()
+    {
+        return Curso::query()
+            ->where('inicial', $this->inicial)
+            ->where('final', $this->final)
+            ->where('periodo', $this->periodo)
+            ->get();
+    }
+
+    /**
+     * Grupos con composite key (inicial + final + periodo).
+     */
+    public function getGruposCompletosAttribute()
+    {
+        return Grupo::query()
+            ->where('inicial', $this->inicial)
+            ->where('final', $this->final)
+            ->where('periodo', $this->periodo)
+            ->get();
+    }
+
+    /**
+     * Horarios con composite key (inicial + final + periodo).
+     */
+    public function getHorariosCompletosAttribute()
+    {
+        return HorarioDet::query()
+            ->where('inicial', $this->inicial)
+            ->where('final', $this->final)
+            ->where('periodo', $this->periodo)
+            ->get();
     }
 
     public function scopeActivo($query)

@@ -26,7 +26,7 @@ class AlumnoController extends Controller
     {
         $ciclo = $this->cicloService->resolve($request);
         
-        $query = Alumno::query();
+        $query = Alumno::inscritosEnCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo);
         
         if ($request->filled('buscar')) {
             $buscar = $request->get('buscar');
@@ -51,14 +51,14 @@ class AlumnoController extends Controller
             $query->where('turno', $request->get('turno'));
         }
 
-        $alumnos = $query->with(['sede', 'nivelRel', 'turnoRel'])
+        $alumnos = $query->with(['sede', 'nivelRel', 'turnoRel', 'inscripciones.grupo'])
             ->orderBy('paterno')
             ->orderBy('materno')
             ->orderBy('nombre')
             ->paginate(25);
 
         return view('academia.alumnos.index', [
-            'ciclo' => $this->cicloService->resolve($request),
+            'ciclo' => $ciclo,
             'alumnos' => $alumnos,
             'estatusOptions' => ['ACTIVO', 'BAJA', 'EGRESADO', 'TITULADO', 'IRREGULAR'],
         ]);

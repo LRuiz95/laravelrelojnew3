@@ -5,11 +5,10 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 mb-0">Profesores</h1>
-    <div class="btn-group btn-group-sm">
-        <a href="{{ route('academia.ciclos.index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-calendar me-1"></i> Cambiar ciclo
-        </a>
-    </div>
+    <x-academia.ciclo-selector
+        :ciclo="$ciclo"
+        :ciclos="\App\Models\Academia\Ciclo::orderByDesc('inicial')->orderByDesc('final')->orderByDesc('periodo')->get()"
+    />
 </div>
 
 {{-- Filtros --}}
@@ -29,7 +28,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label">Origen</label>
                 <select name="origen" class="form-select">
                     <option value="">Todos</option>
@@ -42,7 +41,14 @@
                 <label class="form-label">Departamento</label>
                 <input type="text" name="departamento" class="form-control" value="{{ request('departamento') }}">
             </div>
-            <div class="col-md-2 d-flex align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="soloCiclo" name="solo_ciclo" value="1" {{ $soloCiclo ? 'checked' : '' }}>
+                    <label class="form-check-label small" for="soloCiclo">Solo con horarios en ciclo</label>
+                </div>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">Filtrar</button>
             </div>
         </form>

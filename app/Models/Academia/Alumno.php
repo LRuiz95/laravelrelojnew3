@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Facades\DB;
 
@@ -60,6 +61,30 @@ class Alumno extends Model
         return $this->hasMany(AlumnoKardex::class, 'numero_alumno', 'numero_alumno');
     }
 
+    /**
+     * Grupos en los que está inscrito este alumno (catálogo global, todos los ciclos).
+     * Para filtrar por ciclo usar wherePivot('inicial', $inicial)->wherePivot('final', $final)->wherePivot('periodo', $periodo).
+     */
+    public function grupos(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Grupo::class,
+            'alumnos_grupos',
+            'numero_alumno',
+            'codigo_grupo',
+        )->using(\App\Models\Academia\AlumnoGrupo::class)
+         ->withPivot('inicial', 'final', 'periodo', 'fecha_inscripcion', 'estatus', 'observaciones');
+    }
+
+    /**
+     * Inscripciones del alumno en todos los ciclos (via alumnos_grupos).
+     * Cada registro tiene acceso al grupo via $inscripcion->grupo.
+     */
+    public function inscripciones(): HasMany
+    {
+        return $this->hasMany(\App\Models\Academia\AlumnoGrupo::class, 'numero_alumno', 'numero_alumno');
+    }
+
     public function sede(): BelongsTo
     {
         return $this->belongsTo(Sede::class, 'id_campus', 'id_campus');
@@ -94,6 +119,26 @@ class Alumno extends Model
             ->where('alumnos_grupos.inicial', $inicial)
             ->where('alumnos_grupos.final', $final)
             ->where('alumnos_grupos.periodo', $periodo));
+    }
+
+    /**
+     * Alumnos inscritos en un ciclo específico, con eager-load del grupo del ciclo.
+     * Wrapper de scopePorCiclo + eager load de la relación grupo filtrada por el mismo ciclo.
+     */
+    public function scopeInscritosEnCiclo($query, int $inicial, int $final, int $periodo)
+    {
+        return $query->whereExists(fn ($q) => $q
+            ->select(DB::raw(1))
+            ->from('alumnos_grupos')
+            ->whereColumn('alumnos_grupos.numero_alumno', 'alumnos.numero_alumno')
+            ->where('alumnos_grupos.inicial', $inicial)
+            ->where('alumnos_grupos.final', $final)
+            ->where('alumnos_grupos.periodo', $periodo))
+            ->with(['inscripciones' => fn ($q) => $q
+                ->where('inicial', $inicial)
+                ->where('final', $final)
+                ->where('periodo', $periodo)
+                ->with('grupo')]);
     }
 
     protected function nombreCompleto(): Attribute

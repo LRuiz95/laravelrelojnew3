@@ -126,8 +126,8 @@
                                         <div class="text-muted small">{{ $cl['MATERIA_NOMBRE'] }}</div>
                                     </td>
                                     <td>
-                                        <span class="badge {{ str_starts_with($cl['GRUPO_TURNO'] ?? '', 'V') ? 'bg-purple' : 'bg-warning' }}">
-                                            {{ $cl['GRADO'] }}-{{ $cl['TURNO'] ?? '' }}
+                                        <span class="badge {{ str_starts_with($cl['TURNO'] ?? '', 'V') ? 'bg-purple' : 'bg-warning' }}">
+                                            {{ $cl['GRADO'] ?? '' }}-{{ $cl['TURNO'] ?? '' }}
                                         </span>
                                     </td>
                                     <td><small class="text-muted">{{ $cl['EDIFICIO'] }} {{ $cl['AULA'] }}</small></td>
@@ -144,7 +144,7 @@
                                                     "grupo"=>$cl["CODIGO_GRUPO"],"profesor"=>$cl["CLAVEPROFESOR"],
                                                     "asig"=>$cl["CLAVEASIGNATURA"],"dia"=>$cl["DIA"],"sesion"=>$cl["SESION"],
                                                     "fecha"=>$filtros["fecha"],"nombre"=>$cl["NOMBREPROFESOR"],
-                                                    "materia"=>$cl["MATERIA_NOMBRE"],"grupoLabel"=>$cl["GRUPO_LABEL"],
+                                                    "materia"=>$cl["MATERIA_NOMBRE"],"grupoLabel"=>($cl["GRADO"] ?? '')."-".($cl["TURNO"] ?? ''),
                                                     "aula"=>$cl["EDIFICIO"]." ".$cl["AULA"],"hora"=>$hora_inicio." - ".$hora_fin,
                                                     "estado"=>$estado,"obs"=>$cl["ASISTENCIA_OBS"] ?? ""
                                                 ], JSON_HEX_APOS | JSON_HEX_TAG) }})'>

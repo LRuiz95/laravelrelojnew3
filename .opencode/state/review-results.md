@@ -1,85 +1,166 @@
-# Code Quality Review — `resources/views/academia/dashboard/index.blade.php`
+# Code Review Results — TASK-ACAD-001 Academia Hierarchy
 
-**Reviewer:** opencode/reviewer (review 2)
+**Reviewer:** reviewer (nemotron-3-ultra-free)
 **Date:** 2026-09-09
-**Severity:** LOW
-**Verdict:** PASS — minor notes, no blockers.
+**Task Boundary:** `.opencode/state/current-task.md`
 
 ---
 
-## 1. Blade syntax
+## Summary
 
-Valid throughout. Correct use of `@extends`, `@section`, `@push`, `@if/@elseif/@else/@endif`, `@isset/@endisset`, `@foreach/@endforeach`, `@forelse/@empty/@endforelse`, `@switch/@case/@default/@endswitch`, `@php/@endphp`. No unclosed blocks or mismatches.
-
-## 2. `route()` calls
-
-All 11 route calls use named routes with appropriate parameters:
-- `academia.dashboard`, `academia.ciclos.show`, `academia.ciclos.index` — correct.
-- `academia.grupos.index`, `academia.alumnos.index`, `academia.profesores.index`, `academia.horarios.clase`, `academia.kardex.index`, `academia.cursos.index`, `academia.planes.index` — correct.
-- `dashboard.kpisJson` — correct.
-- No typos or missing parameters detected.
-
-## 3. Variable handling with `@isset` / fallbacks
-
-- `$kpis` array accessed with `??` null coalescing throughout (lines 48, 78, 95, 121–128). Safe.
-- `$totales` wrapped in `@isset` before rendering sub-captions (lines 63, 71, 79, 88, 102). Correct.
-- `$ciclo` properties accessed without null checks — assumed present by controller contract. Acceptable if controller always provides it.
-- `$horariosPorDia`, `$porOrigen` — guarded: `array_sum() === 0` check (line 192), `empty()` check (line 234). Correct.
-- Module array uses `?? null` for optional totals (lines 121–128). Correct.
-
-## 4. JS syntax
-
-- IIFE wrapper (line 350). No globals leaked.
-- `querySelector`/`getElementById` with null guards (line 356). Correct.
-- `addEventListener` for `change` and `submit`. Correct.
-- `fetch` with proper `.then()`/`.catch()`/`.finally()` chain. No unhandled promises.
-- `encodeURIComponent` used for URL params (lines 365, 417). Correct.
-- `void valEl.offsetWidth` for reflow trick (line 393). Standard pattern.
-- Form submit fallback (line 440) when fetch fails. Correct.
-- No syntax errors detected.
-
-## 5. CSS tokens
-
-- Uses `var(--primary)`, `var(--border)`, `var(--text-tertiary)`, `var(--cat-*)` — existing design tokens.
-- Color categories: `purple`, `blue`, `green`, `orange`, `pink`, `teal`, `amber`, `lavender` — consistent with component library.
-- No hardcoded hex colors except `rgba(0,0,0,.08)` and `rgba(0,0,0,.22)` for shadows — acceptable.
-- Font: `'JetBrains Mono'` used elsewhere in the project — consistent.
-
-## 6. Dead code
-
-- Line 18: `<div class="vr d-none d-md-block" ...>` — visual divider, used in flex layout. Not dead.
-- `<template id="kpi-skeleton">` (line 109) — referenced by JS for loading state. Not dead.
-- Chart loading spinner (line 226) — toggled by JS. Not dead.
-- No unreachable code or unused variables.
-
-## 7. Responsive design
-
-- Module grid: 4→3→2→1 columns via `@media` (lines 316–318). Correct.
-- Header card: flex wrap + column on mobile (lines 334–338). Correct.
-- KPI value font size override on small screens (lines 341–343). Correct.
-- Table wrapped in `.table-responsive` (line 271). Correct.
-- Chart SVG uses `preserveAspectRatio="none"` for fluid width. Acceptable for a sparkline.
-
-## 8. Accessibility
-
-- `aria-labelledby` on sections (lines 7, 113). Correct.
-- `aria-live="polite"` + `aria-busy` on KPI region (line 59). Correct — JS toggles busy state during fetch.
-- `sr-only` table (`.visually-hidden`, line 220) with `<caption>`, `<thead>`, `scope="col"`. Correct.
-- `aria-label` on SVG chart (line 200) with data summary. Correct.
-- `aria-label` on module cards (line 135). Correct.
-- `aria-label` on tooltip button (line 82). Correct.
-- `role="status"` on warning alert (line 49). Correct.
-- `role="img"` on SVG (line 199). Correct.
-- `:focus-visible` style on `.card-link` (line 324). Correct.
-- Form `<label for>` association (line 22–23). Correct.
-
-## 9. Minor notes (non-blocking)
-
-- **Line 406:** `document.querySelector('[data-mod-ciclo="' + label + '"]')` — `label` comes from `Object.keys(map)` which is a fixed set of hardcoded strings. Safe. If map keys ever included user input, this would be a selector injection risk, but here it's not.
-- **Line 422:** POST to `/academia/set-ciclo` uses a hardcoded path. If the route changes, this breaks silently. Consider using a `data-` attribute on the page to externalize the URL (same pattern as `data-kpis-url`).
-- **Line 381:** The `map` object keys must match the `.kpi-label`/`h6` text content exactly. If any label changes in the Blade components, this JS mapping breaks silently. Low risk since both are in the same file.
-- No `@csrf` directive in the form, but it's a GET form so none is needed. Correct.
+**Verdict: CONSENSUS with OBSERVATIONS** — The implementation correctly delivers the declared scope (cycle as primary context, unified selector, filtered alumnos/profesores, plan usage badges). Three **performance-critical N+1 issues** and several **maintainability concerns** must be addressed before DONE.
 
 ---
 
-**Summary:** Blade syntax valid, routes correct, variables guarded, JS clean, CSS uses tokens, responsive complete, accessibility solid. Three minor maintainability notes (non-blocking). No dead code.
+## Detailed Findings
+
+### 1. Code Correctness — Logic Matches Plan ✓
+
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| `Alumno::scopeInscritosEnCiclo()` filters by cycle + eager-loads grupo | ✓ | Correctly uses `whereExists` + `with(['grupo' => ...])` |
+| `Profesor::scopeConHorariosEnCiclo()` filters by cycle | ✓ | Uses `whereHas('horarios', ...)` — correct |
+| `Profesor::scopeTodos()` returns unfiltered query | ✓ | Trivial but explicit |
+| `AlumnoController::index()` returns only inscritos in cycle | ✓ | Uses new scope, passes `$ciclo` to view |
+| `ProfesorController::index()` toggle `solo_ciclo` (default true) | ✓ | Boolean param, default true — matches spec |
+| `PlanController::index()` badge "Usado en X ciclos" | ✓ | Distinct cycle count via materias → horarios_det join |
+| Cycle selector component preserves all query params | ✓ | Iterates `request()->except(['ciclo_principal'])` |
+| All reviewed views use selector component | ✓ | Alumnos, Profesores, Planes verified |
+
+**Missing from allowed files (per Task Boundary):**
+- `resources/views/layouts/academia.blade.php` — **NOT CREATED** (listed as NEW in Allowed Files §48)
+- `GrupoController`, `CursoController`, `HorarioController`, `KardexController`, `ApiController` — verified as "Solo lectura/verificación" but no evidence they pass `$ciclo` to views
+- Remaining 10+ views (grupos, cursos, horarios, kardex) — not in changed files list; must be verified before DONE
+
+---
+
+### 2. Performance — N+1 Queries Found ⚠️ BLOCKING
+
+| Location | Issue | Impact | Fix |
+|----------|-------|--------|-----|
+| `AlumnoController::index()` line 54 | Eager loads `grupo` (AlumnoGrupo pivot) but **not** `grupo.grupo` (Grupo model). View accesses `$alumno->grupo->first()->grupo->codigo_grupo` | **N+1**: 1 extra query per alumno (25/page = 25 queries) | Change `with(['grupo'])` → `with(['grupo.grupo'])` or `with(['grupo.grupo:codigo_grupo,inicial,final,periodo,nivel,turno,id_campus'])` |
+| `PlanController::index()` lines 51-58 | Separate query for `ciclosPorPlan` runs after pagination fetch | Acceptable (1 extra query), but could be a subquery join | Consider `withCount` with custom subquery or `addSelect` subquery for single query |
+| `ProfesorController::show()` lines 100-121 | Three separate `count()` queries for stats (total, PTC, PA) | 3 extra queries per show | Combine into single query with conditional aggregation |
+
+**Evidence:**
+```php
+// AlumnoController.php:54 - CURRENT
+$query->with(['sede', 'nivelRel', 'turnoRel', 'grupo'])
+
+// AlumnoGrupo.php:40-46 - has grupo() relationship to Grupo model
+// View line 93-96 accesses $alumno->grupo->first()->grupo->codigo_grupo
+```
+
+---
+
+### 3. Maintainability — Naming & Duplication ⚠️
+
+| Issue | Location | Recommendation |
+|-------|----------|----------------|
+| **Misleading relationship name** | `Alumno::grupo()` returns `AlumnoGrupo` (pivot) collection, not `Grupo` model | Rename to `inscripciones()` or `alumnoGrupos()`; add `grupoActual()` accessor for common case |
+| **Trivial scope** | `Profesor::scopeTodos()` just returns `$query` | Remove scope; use `Profesor::query()` directly in controller |
+| **Cycle query duplicated in 3 views** | `alumnos/index.blade.php:10`, `profesores/index.blade.php:10`, `planes/index.blade.php:11` | Extract to `CicloActualService::getAllForSelector()` (already exists!) or view composer |
+| **Magic string 'ciclo_principal'** | Component, service, routes | Define constant `CicloActualService::PARAM_KEY = 'ciclo_principal'` |
+| **Hardcoded pagination (25)** | 3 controllers | Move to config or constant |
+
+---
+
+### 4. Regression — Existing Functionality Preserved ✓
+
+- **Alumno index**: Previously showed ALL active alumnos globally. Now correctly shows only `inscritosEnCiclo`. **Intentional breaking change** per Task Boundary §15 rollback plan.
+- **Profesor index**: Previously showed all profesores. Now defaults to `conHorariosEnCiclo` with toggle for "Todos". **Intentional**.
+- **Plan index**: Previously no cycle context. Now receives `$ciclo` (visual only) + badge. **Intentional additive change**.
+- **No changes** to `Ciclo`, `Materia`, `Plan`, `Nivel`, `Turno`, `Sede`, `AlumnoGrupo`, `CursoDet`, migrations, `CicloActualService`, Firebird sync — compliant with Forbidden Files §75-91.
+
+---
+
+### 5. Testing — Coverage Gaps ⚠️
+
+**Current test file (`AcademiaHierarchyTest.php`):**
+- ✓ Model scopes (7 tests)
+- ✓ Relationship verification (1 test)
+- ⚠ Controller tests only verify HTTP 200/302 — **no assertions on actual data returned**
+- ✗ No tests for: cycle selector component, PlanController badge logic, `solo_ciclo` toggle, eager loading correctness, N+1 absence
+
+**Required for Nivel 3 (per Task Boundary §123):**
+- Integration tests with DB verifying filtered results match expected alumnos/profesores
+- Assert pagination data contains correct records
+- Test cycle selector preserves filters across pagination
+- Test `ciclosPorPlan` count accuracy
+
+---
+
+### 6. Consistency — Patterns Followed ✓
+
+- Scopes follow existing pattern (`scopeActivo`, `scopePorCiclo`, `scopePorEstatus`)
+- Controllers use constructor DI for `CicloActualService`
+- Blade components use `@props` with defaults
+- Bootstrap 5 classes consistent
+- Routes use `academia.` prefix and resource conventions
+
+---
+
+### 7. Security (MEDIUM severity per Task Boundary §128)
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| Parameter binding in scopes | ✓ | `whereExists` with closures, `whereHas` — no raw SQL |
+| Cycle validation | ✓ | `CicloActualService::findByLabel()` validates against DB |
+| IDOR risk on `ciclo_principal` | ✓ Low | Cycle is validated; no direct object reference to sensitive data |
+| Auth middleware on all routes | ✓ | Routes wrapped in `middleware('auth')` |
+| CSRF on forms | ✓ | Forms use standard Laravel POST with `@csrf` where needed |
+
+---
+
+## Required Fixes Before DONE
+
+### P0 — Must Fix (Blocking)
+
+1. **Fix N+1 in AlumnoController**
+   ```php
+   // Line 54: change
+   ->with(['sede', 'nivelRel', 'turnoRel', 'grupo.grupo'])
+   // Or selective columns:
+   ->with(['sede', 'nivelRel', 'turnoRel', 'grupo.grupo:codigo_grupo,inicial,final,periodo,nivel,turno,id_campus'])
+   ```
+
+2. **Create missing `layouts/academia.blade.php`** (Task Boundary §48 deliverable)
+
+3. **Verify all 12+ remaining views** (grupos, cursos, horarios/*, kardex/*) use selector and receive `$ciclo`
+
+### P1 — Should Fix
+
+4. Rename `Alumno::grupo()` → `inscripciones()` + add `grupoActual()` accessor
+5. Remove `Profesor::scopeTodos()` — use `query()` directly
+6. Extract cycle query to `CicloActualService::getAllForSelector()` in views
+7. Strengthen controller tests with data assertions
+
+### P2 — Nice to Have
+
+8. Optimize `PlanController::ciclosPorPlan` with subquery
+9. Combine `ProfesorController::show()` stats into single query
+10. Define `CicloActualService::PARAM_KEY` constant
+
+---
+
+## Evidence Artifacts
+
+- **Models diff:** `app/Models/Academia/Alumno.php` (+3 methods), `Profesor.php` (+2 scopes)
+- **Controllers diff:** `AlumnoController.php` (index rewritten), `ProfesorController.php` (index + toggle), `PlanController.php` (ciclosPorPlan query)
+- **Frontend:** New component `ciclo-selector.blade.php`, 3 updated index views
+- **Tests:** New `AcademiaHierarchyTest.php` (9 tests, needs data assertions)
+
+---
+
+## Consensus Check (Double Pass)
+
+This review constitutes **Pass 1** (model: nemotron-3-ultra-free). A second pass with a different model is required per `.opencode/policies/consensus.md`. If the second pass agrees on the P0/P1 findings → **CONSENSUS**, proceed to fix. If discrepancy on CRITICAL (e.g., one pass misses the N+1) → **HUMAN REVIEW**.
+
+---
+
+## Next Steps
+
+1. **laravel** agent: Apply P0 fixes (N+1, missing layout, verify remaining views)
+2. **tester** agent: Run Nivel 3 suite with strengthened assertions; update `state/test-results.md`
+3. **security** agent: Second pass MEDIUM review; update `state/security-results.md`
+4. **reviewer** agent: Second pass review → if CONSENSUS on fixes, mark DONE

@@ -40,7 +40,7 @@ Route::middleware('auth')->group(function () {
         // Grupos
         Route::resource('grupos', AcademiaGrupoController::class)->only(['index', 'show']);
         Route::get('grupos/{grupo}/asistencia', [AcademiaGrupoController::class, 'asistencia'])->name('grupos.asistencia');
-        Route::post('grupos/{grupo}/asistencia', [AcademiaGrupoController::class, 'guardarAsistencia'])->name('grupos.asistencia.guardar');
+        Route::post('grupos/asistencia', [AcademiaGrupoController::class, 'guardarAsistencia'])->name('grupos.asistencia.guardar');
 
         // Alumnos
         Route::resource('alumnos', AcademiaAlumnoController::class)->only(['index', 'show']);

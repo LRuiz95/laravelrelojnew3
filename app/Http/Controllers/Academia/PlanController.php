@@ -10,6 +10,7 @@ use App\Models\Academia\Materia;
 use App\Models\Academia\MetodoEval;
 use App\Models\Academia\Nivel;
 use App\Models\Academia\Contrato;
+use App\Services\CicloActualService;
 use App\Http\Requests\PlanFormRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,8 +19,14 @@ use Illuminate\Http\JsonResponse;
 
 class PlanController extends Controller
 {
+    public function __construct(
+        protected CicloActualService $cicloService,
+    ) {}
+
     public function index(Request $request): View
     {
+        $ciclo = $this->cicloService->resolve($request);
+        
         $query = Plan::with(['materias' => fn ($q) => $q->activa()])
             ->withCount('materias');
 
@@ -40,9 +47,21 @@ class PlanController extends Controller
             ->orderBy('nombre_plan')
             ->paginate(25);
 
+        // Count distinct ciclos where each plan is used (via materias → horarios_det)
+        $planIds = $planes->pluck('id_plan');
+        $ciclosPorPlan = \App\Models\Academia\Materia::query()
+            ->join('horarios_det', 'horarios_det.clave_asignatura', '=', 'materias.clave_asignatura')
+            ->whereIn('materias.id_plan', $planIds)
+            ->select('materias.id_plan')
+            ->selectRaw('COUNT(DISTINCT CONCAT(horarios_det.inicial, "-", horarios_det.final, "-", horarios_det.periodo)) as ciclos_count')
+            ->groupBy('materias.id_plan')
+            ->pluck('ciclos_count', 'id_plan');
+
         return view('academia.planes.index', [
+            'ciclo' => $ciclo,
             'planes' => $planes,
             'niveles' => \App\Models\Academia\Nivel::activo()->get(),
+            'ciclosPorPlan' => $ciclosPorPlan,
         ]);
     }
 

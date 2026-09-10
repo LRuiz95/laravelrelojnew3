@@ -37,9 +37,19 @@ class Curso extends Model
 
     public function ciclo(): BelongsTo
     {
-        return $this->belongsTo(Ciclo::class, 'inicial')
-            ->whereColumn('ciclos.final', 'cursos.final')
-            ->whereColumn('ciclos.periodo', 'cursos.periodo');
+        return $this->belongsTo(Ciclo::class, 'inicial', 'inicial');
+    }
+
+    /**
+     * Resolve ciclo with all 3 columns (inicial + final + periodo).
+     */
+    public function getCicloCompletoAttribute(): ?Ciclo
+    {
+        return Ciclo::query()
+            ->where('inicial', $this->inicial)
+            ->where('final', $this->final)
+            ->where('periodo', $this->periodo)
+            ->first();
     }
 
     public function sede(): BelongsTo

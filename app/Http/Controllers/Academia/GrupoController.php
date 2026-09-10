@@ -113,8 +113,56 @@ class GrupoController extends Controller
 
     public function guardarAsistencia(Request $request): RedirectResponse
     {
-        // Validación y guardado de asistencia
-        // Se implementará con AJAX
-        return back()->with('success', 'Asistencia guardada');
+        // Datos del formulario de captura de asistencia
+        $acInicial = $request->get('acInicial');
+        $acFinal = $request->get('acFinal');
+        $acPeriodo = $request->get('acPeriodo');
+        $acGrupo = $request->get('acGrupo');
+        $acProfesor = $request->get('acProfesor');
+        $acAsignatura = $request->get('acAsignatura');
+        $acDia = $request->get('acDia');
+        $acSesion = $request->get('acSesion');
+        $acFecha = $request->get('acFecha');
+        $acNombre = $request->get('acNombre');
+        $acMateria = $request->get('acMateria');
+        $acGrupoLabel = $request->get('acGrupoLabel');
+        $acAula = $request->get('acAula');
+        $acHora = $request->get('acHora');
+        $acEstado = $request->get('acEstado');
+        $acObs = $request->get('acObs');
+
+        // Buscar o crear el registro de kardex de asistencia
+        $kardex = AlumnoKardex::where('clave_asignatura', $acAsignatura)
+            ->where('inicial', $acInicial)
+            ->where('final', $acFinal)
+            ->where('periodo', $acPeriodo)
+            ->where('numero_alumno', null) // Nuevo registro
+            ->first();
+
+        if (! $kardex) {
+            $kardex = new AlumnoKardex();
+            $kardex->clave_asignatura = $acAsignatura;
+            $kardex->inicial = $acInicial;
+            $kardex->final = $acFinal;
+            $kardex->periodo = $acPeriodo;
+            $kardex->numero_alumno = null;
+        }
+
+        // Determinar el literal de asistencia
+        $literal = match ($acEstado) {
+            'PRESENTE' => 'PRESENTE',
+            'AUSENTE' => 'AUSENTE',
+            'RETARDO' => 'RETARDO',
+            'JUSTIFICADO' => 'JUSTIFICADO',
+            default => 'SIN_CAPTURA',
+        };
+
+        // Guardar los datos de asistencia
+        $kardex->id_eval = 'ASISTENCIA';
+        $kardex->literal = $literal;
+        $kardex->observaciones = $acObs;
+        $kardex->save();
+
+        return back()->with('success', 'Asistencia de ' . $acEstado . ' guardada para ' . $acNombre . ' en ' . $acGrupoLabel . ' (' . $acHora . ')');
     }
 }

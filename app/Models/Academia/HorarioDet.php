@@ -96,13 +96,15 @@ class HorarioDet extends Model
         return $this->belongsTo(Sede::class, 'id_campus', 'id_campus');
     }
 
-    public function sesionBase()
+    /**
+     * NO usar relación sesionBase() en HorarioDet — usa HorarioResolver::getHorarioBase()
+     * en su lugar, ya que la subquery con whereRaw referencia horarios_det por nombre fijo
+     * y falla en eager loading por alias de tabla.
+     */
+    public function sesionBase(): ?SesionBase
     {
-        // horarios_det no tiene nivel/turno — se resuelve a través de Grupo
-        // Usa subqueries para obtener nivel/turno del grupo asociado
-        return $this->belongsTo(SesionBase::class, 'sesion', 'sesion')
-            ->whereRaw('sesiones_base.nivel = (SELECT g.nivel FROM grupos g WHERE g.codigo_grupo = horarios_det.codigo_grupo AND g.inicial = horarios_det.inicial AND g.final = horarios_det.final AND g.periodo = horarios_det.periodo LIMIT 1)')
-            ->whereRaw('sesiones_base.turno = (SELECT g.turno FROM grupos g WHERE g.codigo_grupo = horarios_det.codigo_grupo AND g.inicial = horarios_det.inicial AND g.final = horarios_det.final AND g.periodo = horarios_det.periodo LIMIT 1)');
+        // Placeholder — no usar. Usar HorarioResolver::getHorarioBase($this->inicial, $this->final, $this->periodo)
+        return null;
     }
 
     public function scopeActivo($query)

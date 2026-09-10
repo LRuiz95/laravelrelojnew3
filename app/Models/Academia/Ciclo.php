@@ -127,6 +127,6 @@ class Ciclo extends Model
 
     public function getRouteKeyName(): string
     {
-        return 'inicial'; // Se usará con composite key manual
+        return 'id';
     }
 }

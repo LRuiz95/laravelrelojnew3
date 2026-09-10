@@ -223,7 +223,7 @@
                     </span>
                 </button>
                 <?php
-    $cicloActual = app(\App\Services\CicloActualService::class)->current();
+    $cicloActual = app(\App\Services\CicloActualService::class)->current(request());
     $ciclosDisponibles = \App\Models\Academia\Ciclo::activo()
         ->orderByDesc('inicial')
         ->orderByDesc('final')

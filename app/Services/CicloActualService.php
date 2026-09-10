@@ -73,10 +73,23 @@ class CicloActualService
 
     /**
      * Obtiene el ciclo actual para el header/global.
-     * Sin Request: sesión → default (sin lanzar excepción si no hay ciclos).
+     * Prioridad: parámetro request > sesión > default activo.
+     * Igual que resolve(), para mantener consistencia.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \App\Models\Academia\Ciclo|null
      */
-    public function current(): ?Ciclo
+    public function current(?Request $request = null): ?Ciclo
     {
+        // 1. Parámetro request (máxima prioridad)
+        if ($request && $request->filled('ciclo_principal')) {
+            $ciclo = $this->findByLabel($request->get('ciclo_principal'));
+            if ($ciclo) {
+                return $ciclo;
+            }
+        }
+
+        // 2. Sesión
         if (Session::has(self::SESSION_KEY)) {
             $ciclo = $this->findByLabel(Session::get(self::SESSION_KEY));
             if ($ciclo) {
@@ -84,12 +97,8 @@ class CicloActualService
             }
         }
 
-        return Ciclo::query()
-            ->activo()
-            ->orderByDesc('inicial')
-            ->orderByDesc('final')
-            ->orderByDesc('periodo')
-            ->first();
+        // 3. Default: ciclo activo más reciente
+        return $this->getDefaultCiclo();
     }
 
     public function storeInSession(Ciclo $ciclo): void

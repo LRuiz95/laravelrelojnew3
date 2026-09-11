@@ -53,6 +53,15 @@ preserva intacto y `cleanup` no se invoca todavía.
 
 Ver matriz completa de delegación en `.opencode/policies/permissions.md`.
 
+`completeness-auditor` (`.opencode/agents/completeness-auditor.md`) es un
+agente de solo lectura invocado bajo demanda vía `/audit --deep`, no por
+el flujo normal de tareas. Audita el sistema completo (no un diff
+puntual) buscando funcionalidad redundante, código muerto, rutas rotas
+end-to-end y desorganización de UI — ver
+`.opencode/skills/redundancy-and-completeness/SKILL.md`. Sus hallazgos
+van a `.opencode/state/findings.md` y requieren que `architect` los
+convierta en un plan antes de que cualquier especialista toque código.
+
 ## 5. Task Boundary (obligatorio para tareas COMPLEJAS)
 
 Antes de que cualquier especialista escriba código en una tarea COMPLEJA,

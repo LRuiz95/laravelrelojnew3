@@ -1,166 +1,181 @@
-# Code Review Results — TASK-ACAD-001 Academia Hierarchy
+# Review Results — TASK-2026-0911
 
-**Reviewer:** reviewer (nemotron-3-ultra-free)
-**Date:** 2026-09-09
-**Task Boundary:** `.opencode/state/current-task.md`
-
----
-
-## Summary
-
-**Verdict: CONSENSUS with OBSERVATIONS** — The implementation correctly delivers the declared scope (cycle as primary context, unified selector, filtered alumnos/profesores, plan usage badges). Three **performance-critical N+1 issues** and several **maintainability concerns** must be addressed before DONE.
+**Fecha:** 2026-09-11  
+**Reviewer:** @reviewer (nemotron-3-ultra-free)  
+**Pasadas:** 2 (modelo único — segundo modelo no disponible; hallazgos de severidad CRITICAL/MEDIUM requieren HUMAN REVIEW si no hay consenso)
 
 ---
 
-## Detailed Findings
+## Resumen ejecutivo
 
-### 1. Code Correctness — Logic Matches Plan ✓
+| Área | Estado | Severidad máxima |
+|------|--------|------------------|
+| Correctness | ❌ **BLOQUEANTE** | CRITICAL — Falta relación `sede` en modelo Employee |
+| Backward Compatibility | ⚠️ **RIESGO** | MEDIUM — Cambio de comportamiento en `CicloActualService::resolve()` |
+| Performance | ⚠️ **PREOCUPANTE** | MEDIUM — Queries `distinct` sin índices en `cargo`, `departamento` |
+| Maintainability | ⚠️ **ACEPTABLE** | LOW — Duplicación lógica Blade/JS en `employees-index.js` |
+| Regression | ⚠️ **PRESENTE** | MEDIUM — Test `EmployeeIndexTest` falla (500) |
+| Consistencia | ✅ **OK** | — Patrones alineados con el proyecto |
 
-| Requirement | Status | Notes |
-|-------------|--------|-------|
-| `Alumno::scopeInscritosEnCiclo()` filters by cycle + eager-loads grupo | ✓ | Correctly uses `whereExists` + `with(['grupo' => ...])` |
-| `Profesor::scopeConHorariosEnCiclo()` filters by cycle | ✓ | Uses `whereHas('horarios', ...)` — correct |
-| `Profesor::scopeTodos()` returns unfiltered query | ✓ | Trivial but explicit |
-| `AlumnoController::index()` returns only inscritos in cycle | ✓ | Uses new scope, passes `$ciclo` to view |
-| `ProfesorController::index()` toggle `solo_ciclo` (default true) | ✓ | Boolean param, default true — matches spec |
-| `PlanController::index()` badge "Usado en X ciclos" | ✓ | Distinct cycle count via materias → horarios_det join |
-| Cycle selector component preserves all query params | ✓ | Iterates `request()->except(['ciclo_principal'])` |
-| All reviewed views use selector component | ✓ | Alumnos, Profesores, Planes verified |
-
-**Missing from allowed files (per Task Boundary):**
-- `resources/views/layouts/academia.blade.php` — **NOT CREATED** (listed as NEW in Allowed Files §48)
-- `GrupoController`, `CursoController`, `HorarioController`, `KardexController`, `ApiController` — verified as "Solo lectura/verificación" but no evidence they pass `$ciclo` to views
-- Remaining 10+ views (grupos, cursos, horarios, kardex) — not in changed files list; must be verified before DONE
+**Veredicto:** **NO APROBADO** — Requiere fix crítico (relación `sede` faltante) y mitigaciones de performance/regresión antes de DONE.
 
 ---
 
-### 2. Performance — N+1 Queries Found ⚠️ BLOCKING
+## 1. Correctness ❌ CRITICAL
 
-| Location | Issue | Impact | Fix |
-|----------|-------|--------|-----|
-| `AlumnoController::index()` line 54 | Eager loads `grupo` (AlumnoGrupo pivot) but **not** `grupo.grupo` (Grupo model). View accesses `$alumno->grupo->first()->grupo->codigo_grupo` | **N+1**: 1 extra query per alumno (25/page = 25 queries) | Change `with(['grupo'])` → `with(['grupo.grupo'])` or `with(['grupo.grupo:codigo_grupo,inicial,final,periodo,nivel,turno,id_campus'])` |
-| `PlanController::index()` lines 51-58 | Separate query for `ciclosPorPlan` runs after pagination fetch | Acceptable (1 extra query), but could be a subquery join | Consider `withCount` with custom subquery or `addSelect` subquery for single query |
-| `ProfesorController::show()` lines 100-121 | Three separate `count()` queries for stats (total, PTC, PA) | 3 extra queries per show | Combine into single query with conditional aggregation |
+### Hallazgo CRITICAL-001: Relación `sede` faltante en `Employee` model
+- **Archivos afectados:** `app/Models/Employee.php`, `app/Http/Controllers/EmployeeController.php` (línea 79), `resources/views/employees/index.blade.php` (línea 220), `resources/js/employees-index.js` (línea 110)
+- **Descripción:** `EmployeeController::search()` hace `->with(['devices', 'sede'])` y la vista/JS acceden a `$employee->sede->descripcion`, pero **el modelo `Employee` no define la relación `sede()`**.
+- **Evidencia:** Test `EmployeeIndexTest::test_employees_returns_200` falla con HTTP 500.
+- **Impacto:** Ruta `/employees` completamente rota (500) para cualquier usuario.
+- **Fix requerido:** Agregar en `Employee.php`:
+  ```php
+  public function sede(): BelongsTo
+  {
+      return $this->belongsTo(\App\Models\Academia\Sede::class, 'id_campus', 'id_campus');
+  }
+  ```
+- **Nota:** La tabla `sedes` existe (`App\Models\Academia\Sede`, tabla `sedes`, PK `id_campus`). Otros modelos academia (`Profesor`, `Grupo`, `HorarioDet`, `Alumno`, `Curso`) ya usan esta relación correctamente.
 
-**Evidence:**
-```php
-// AlumnoController.php:54 - CURRENT
-$query->with(['sede', 'nivelRel', 'turnoRel', 'grupo'])
-
-// AlumnoGrupo.php:40-46 - has grupo() relationship to Grupo model
-// View line 93-96 accesses $alumno->grupo->first()->grupo->codigo_grupo
-```
-
----
-
-### 3. Maintainability — Naming & Duplication ⚠️
-
-| Issue | Location | Recommendation |
-|-------|----------|----------------|
-| **Misleading relationship name** | `Alumno::grupo()` returns `AlumnoGrupo` (pivot) collection, not `Grupo` model | Rename to `inscripciones()` or `alumnoGrupos()`; add `grupoActual()` accessor for common case |
-| **Trivial scope** | `Profesor::scopeTodos()` just returns `$query` | Remove scope; use `Profesor::query()` directly in controller |
-| **Cycle query duplicated in 3 views** | `alumnos/index.blade.php:10`, `profesores/index.blade.php:10`, `planes/index.blade.php:11` | Extract to `CicloActualService::getAllForSelector()` (already exists!) or view composer |
-| **Magic string 'ciclo_principal'** | Component, service, routes | Define constant `CicloActualService::PARAM_KEY = 'ciclo_principal'` |
-| **Hardcoded pagination (25)** | 3 controllers | Move to config or constant |
+### Hallazgo MEDIUM-001: `CicloController::index()` usa `resolve()` que ahora lanza excepción
+- **Archivo:** `app/Http/Controllers/Academia/CicloController.php` línea 42
+- **Descripción:** El `try-catch` captura `NoCiclosConfiguradosException`, pero `resolve()` ahora llama a `getCurrent()` que **lanza la excepción** si no hay ciclos (línea 75 de `CicloActualService`). El catch funciona, pero el flujo es: `resolve()` → `getCurrent()` → `getDefaultCiclo()` → `throw`.
+- **Verificación:** El test `test_academia_ciclos_shows_empty_state_when_no_ciclos` pasa, pero el test crea ciclos en `setUp()` — no prueba el caso real de BD vacía.
+- **Recomendación:** Añadir test explícito con BD vacía (sin ciclos) para validar el empty state end-to-end.
 
 ---
 
-### 4. Regression — Existing Functionality Preserved ✓
+## 2. Backward Compatibility ⚠️ MEDIUM
 
-- **Alumno index**: Previously showed ALL active alumnos globally. Now correctly shows only `inscritosEnCiclo`. **Intentional breaking change** per Task Boundary §15 rollback plan.
-- **Profesor index**: Previously showed all profesores. Now defaults to `conHorariosEnCiclo` with toggle for "Todos". **Intentional**.
-- **Plan index**: Previously no cycle context. Now receives `$ciclo` (visual only) + badge. **Intentional additive change**.
-- **No changes** to `Ciclo`, `Materia`, `Plan`, `Nivel`, `Turno`, `Sede`, `AlumnoGrupo`, `CursoDet`, migrations, `CicloActualService`, Firebird sync — compliant with Forbidden Files §75-91.
+### Hallazgo MEDIUM-002: Cambio semántico en `CicloActualService::resolve()`
+- **Archivo:** `app/Services/CicloActualService.php` líneas 47-50
+- **Antes (implícito):** `resolve()` tenía su propia lógica de prioridad (probablemente sesión → default).
+- **Ahora:** `resolve()` es wrapper de `getCurrent()` con prioridad **URL param → sesión → default** y **guarda en sesión si viene por URL**.
+- **Consumidores afectados (26 llamadas en 11 controladores Academia):**
+  - `AlumnoController` (4), `GrupoController` (3), `DashboardController` (1), `KardexController` (4), `CicloController` (1), `PlanController` (1), `HorarioController` (5), `CursoController` (4), `ProfesorController` (3), `ApiController`, `CicloController`
+- **Riesgo:** Controladores que esperaban que `resolve()` **no** modificara la sesión ahora la modificarán si hay `?ciclo_principal=` en la URL. Esto cambia el estado global del usuario silenciosamente.
+- **Mitigación:** Documentar el cambio en `decisions.md` y verificar que ningún controlador académico genere URLs con `ciclo_principal` sin intención de persistir la selección.
 
----
-
-### 5. Testing — Coverage Gaps ⚠️
-
-**Current test file (`AcademiaHierarchyTest.php`):**
-- ✓ Model scopes (7 tests)
-- ✓ Relationship verification (1 test)
-- ⚠ Controller tests only verify HTTP 200/302 — **no assertions on actual data returned**
-- ✗ No tests for: cycle selector component, PlanController badge logic, `solo_ciclo` toggle, eager loading correctness, N+1 absence
-
-**Required for Nivel 3 (per Task Boundary §123):**
-- Integration tests with DB verifying filtered results match expected alumnos/profesores
-- Assert pagination data contains correct records
-- Test cycle selector preserves filters across pagination
-- Test `ciclosPorPlan` count accuracy
+### Hallazgo MEDIUM-003: `CicloActualService::current()` ahora retorna `null` en vez de lanzar
+- **Archivo:** `app/Services/CicloActualService.php` líneas 85-92
+- **Consumidor:** `resources/views/layouts/admin.blade.php` línea 221 (header global)
+- **Comportamiento:** Correcto para el header (debe degradar graciosamente), pero cualquier otro uso de `current()` que esperara excepción recibirá `null`.
+- **Verificación:** Solo el header usa `current()` — riesgo bajo.
 
 ---
 
-### 6. Consistency — Patterns Followed ✓
+## 3. Performance ⚠️ MEDIUM
 
-- Scopes follow existing pattern (`scopeActivo`, `scopePorCiclo`, `scopePorEstatus`)
-- Controllers use constructor DI for `CicloActualService`
-- Blade components use `@props` with defaults
-- Bootstrap 5 classes consistent
-- Routes use `academia.` prefix and resource conventions
+### Hallazgo MEDIUM-004: Queries `distinct` sin índices en `cargo` y `departamento`
+- **Archivo:** `app/Http/Controllers/EmployeeController.php` líneas 57-58
+- **Queries:**
+  ```php
+  $cargos = Employee::whereNotNull('cargo')->where('cargo', '!=', '')->distinct()->pluck('cargo')->sort()->values();
+  $departamentos = Employee::whereNotNull('departamento')->where('departamento', '!=', '')->distinct()->pluck('departamento')->sort()->values();
+  ```
+- **Estado índices (migración `2026_09_05_010214`):**
+  - ✅ `id_campus` → `idx_employees_campus`
+  - ✅ `status_actual` → `employees_status_actual_index`
+  - ✅ `(type, status_actual)` → `idx_employees_type_status`
+  - ❌ **`cargo` — SIN ÍNDICE**
+  - ❌ **`departamento` — SIN ÍNDICE**
+- **Impacto:** En tabla `employees` con >5k registros, cada carga de `/employees` hará **2 full table scans** para poblar los filtros. Sin `LIMIT`, devuelven TODOS los valores distintos.
+- **Recomendación urgente:**
+  1. Añadir índices en migración nueva: `$table->index('cargo'); $table->index('departamento');`
+  2. Añadir `->limit(100)` (o valor razonable) a las queries `distinct` para evitar memoria excesiva si hay cardinalidad alta.
+  3. Considerar cachear estas listas (TTL 5-10 min) ya que cambian poco.
 
----
-
-### 7. Security (MEDIUM severity per Task Boundary §128)
-
-| Check | Result | Notes |
-|-------|--------|-------|
-| Parameter binding in scopes | ✓ | `whereExists` with closures, `whereHas` — no raw SQL |
-| Cycle validation | ✓ | `CicloActualService::findByLabel()` validates against DB |
-| IDOR risk on `ciclo_principal` | ✓ Low | Cycle is validated; no direct object reference to sensitive data |
-| Auth middleware on all routes | ✓ | Routes wrapped in `middleware('auth')` |
-| CSRF on forms | ✓ | Forms use standard Laravel POST with `@csrf` where needed |
-
----
-
-## Required Fixes Before DONE
-
-### P0 — Must Fix (Blocking)
-
-1. **Fix N+1 in AlumnoController**
-   ```php
-   // Line 54: change
-   ->with(['sede', 'nivelRel', 'turnoRel', 'grupo.grupo'])
-   // Or selective columns:
-   ->with(['sede', 'nivelRel', 'turnoRel', 'grupo.grupo:codigo_grupo,inicial,final,periodo,nivel,turno,id_campus'])
-   ```
-
-2. **Create missing `layouts/academia.blade.php`** (Task Boundary §48 deliverable)
-
-3. **Verify all 12+ remaining views** (grupos, cursos, horarios/*, kardex/*) use selector and receive `$ciclo`
-
-### P1 — Should Fix
-
-4. Rename `Alumno::grupo()` → `inscripciones()` + add `grupoActual()` accessor
-5. Remove `Profesor::scopeTodos()` — use `query()` directly
-6. Extract cycle query to `CicloActualService::getAllForSelector()` in views
-7. Strengthen controller tests with data assertions
-
-### P2 — Nice to Have
-
-8. Optimize `PlanController::ciclosPorPlan` with subquery
-9. Combine `ProfesorController::show()` stats into single query
-10. Define `CicloActualService::PARAM_KEY` constant
+### Hallazgo LOW-001: Query `sedes` con JOIN innecesario en `index()`
+- **Archivo:** `app/Http/Controllers/EmployeeController.php` líneas 59-63
+- **Query actual:** JOIN a tabla `campus` para traer `descripcion`.
+- **Observación:** La tabla `campus` parece ser `sedes` (modelo `Academia\Sede`, tabla `sedes`). El JOIN funciona pero es confuso.
+- **Recomendación:** Verificar si `campus` y `sedes` son la misma tabla o tablas distintas. Si son la misma, usar el nombre consistente.
 
 ---
 
-## Evidence Artifacts
+## 4. Maintainability ⚠️ LOW
 
-- **Models diff:** `app/Models/Academia/Alumno.php` (+3 methods), `Profesor.php` (+2 scopes)
-- **Controllers diff:** `AlumnoController.php` (index rewritten), `ProfesorController.php` (index + toggle), `PlanController.php` (ciclosPorPlan query)
-- **Frontend:** New component `ciclo-selector.blade.php`, 3 updated index views
-- **Tests:** New `AcademiaHierarchyTest.php` (9 tests, needs data assertions)
+### Hallazgo LOW-002: Duplicación de lógica de renderizado de filas (Blade ↔ JS)
+- **Archivos:** `resources/views/employees/index.blade.php` (líneas 190-392) vs `resources/js/employees-index.js` (función `buildRow`, líneas 74-216)
+- **Descripción:** La fila de la tabla se renderiza **dos veces**: una en Blade (SSR initial) y otra en JS (AJAX). Cualquier cambio en columnas, badges, iconos, tooltips, acciones → **dos lugares para tocar**.
+- **Riesgo:** Divergencia silenciosa (ej. badge nuevo en Blade no aparece en AJAX, o viceversa).
+- **Mitigación recomendada:**
+  - Opción A: Extraer la fila a un **partial Blade** (`_employee-row.blade.php`) y renderizarlo vía `render()` en el controlador AJAX (devuelve HTML, no JSON). El JS solo hace `tbody.innerHTML = response.html`.
+  - Opción B: Mantener JSON pero mover `buildRow` a un **componente Vue/Alpine** o template JS compartido (más trabajo).
+  - Dado el scope actual, **Opción A es preferible** y coherente con patrón Laravel "HTML over the wire".
+
+### Hallazgo LOW-003: `employees-index.js` usa `window.location.origin + '/devices/'` hardcoded
+- **Archivo:** `resources/js/employees-index.js` línea 135
+- **Código:** `href="' + window.location.origin + '/devices/' + d.id + '"`
+- **Problema:** No usa `route('devices.show', d.id)` — frágil si cambian rutas o hay subdirectorio.
+- **Fix:** Pasar `devices.show` route base via `data-` attribute en la tabla o inyectar en JS desde Blade.
 
 ---
 
-## Consensus Check (Double Pass)
+## 5. Regression ⚠️ MEDIUM
 
-This review constitutes **Pass 1** (model: nemotron-3-ultra-free). A second pass with a different model is required per `.opencode/policies/consensus.md`. If the second pass agrees on the P0/P1 findings → **CONSENSUS**, proceed to fix. If discrepancy on CRITICAL (e.g., one pass misses the N+1) → **HUMAN REVIEW**.
+### Hallazgo MEDIUM-005: Test `EmployeeIndexTest` falla (500)
+- **Archivo:** `tests/Feature/EmployeeIndexTest.php` línea 51
+- **Causa raíz:** Hallazgo CRITICAL-001 (relación `sede` faltante).
+- **Estado:** 1 test fallando, 7 pasando. El test actual solo verifica status 200 — no cubre filtros, paginación, AJAX search.
+- **Cobertura esperada (Task Boundary):** "Tests pasando: EmployeeIndex (3+)" — actualmente **0/3+** funcionales.
+
+### Hallazgo LOW-004: Tests `CicloControllerTest` no cubren caso real BD vacía
+- **Archivo:** `tests/Feature/CicloControllerTest.php` líneas 39-54
+- **Problema:** `setUp()` crea 2 ciclos. El test `test_academia_ciclos_shows_empty_state_when_no_ciclos` **no limpia la BD** — solo verifica que no sea 500. No valida que se renderice `empty-ciclos.blade.php`.
+- **Recomendación:** Añadir test con `RefreshDatabase` y sin ciclos creados, verificar `assertSee('No hay ciclos registrados')`.
 
 ---
 
-## Next Steps
+## 6. Consistencia ✅ OK
 
-1. **laravel** agent: Apply P0 fixes (N+1, missing layout, verify remaining views)
-2. **tester** agent: Run Nivel 3 suite with strengthened assertions; update `state/test-results.md`
-3. **security** agent: Second pass MEDIUM review; update `state/security-results.md`
-4. **reviewer** agent: Second pass review → if CONSENSUS on fixes, mark DONE
+| Patrón | Estado | Comentario |
+|--------|--------|------------|
+| Service wrapper (`resolve` → `getCurrent`) | ✅ | Limpio, documentado en PHPDoc |
+| Progressive enhancement (SSR + JS) | ✅ | Coherente con `resources/js/app.js` pattern |
+| Filter chips + active badges | ✅ | Coherente con UI del proyecto |
+| Exception handling en controller | ✅ | `try-catch` + empty state view |
+| Distinct queries para filtros | ✅ | Patrón usado en otros controladores |
+| Test naming `test_<feature>_<expectation>` | ✅ | Consistencia PHPUnit |
+
+---
+
+## Recomendaciones priorizadas
+
+### 🔴 CRITICAL — Bloquea DONE (fix obligatorio)
+1. **Agregar relación `sede()` en `Employee.php`** (ver fix en CRITICAL-001).
+2. **Ejecutar test suite completa** tras fix y confirmar `EmployeeIndexTest` pasa.
+
+### 🟠 MEDIUM — Debería resolverse antes de DONE
+3. **Añadir índices en `cargo` y `departamento`** (migración nueva) + `->limit(100)` en queries distinct.
+4. **Documentar cambio semántico de `resolve()`** en `.opencode/state/decisions.md` y validar que no rompe controladores academia.
+5. **Añadir test real de BD vacía** para `CicloController::index()` empty state.
+6. **Expandir `EmployeeIndexTest`**: al menos 3 tests (carga inicial, filtro búsqueda, paginación AJAX).
+
+### 🟡 LOW — Deuda técnica (puede ir a backlog)
+7. **Refactor fila de tabla a partial Blade** + endpoint AJAX que devuelva HTML (elimina duplicación Blade/JS).
+8. **Fix `window.location.origin` hardcoded** en `employees-index.js`.
+9. **Verificar tabla `campus` vs `sedes`** — unificar nomenclatura.
+
+---
+
+## Evidencia de doble pasada (consenso)
+
+> **Nota:** Segunda pasada con modelo distinto no disponible en este entorno. Hallazgos de severidad **CRITICAL** y **MEDIUM** requieren **HUMAN REVIEW** por política de consenso (`.opencode/policies/consensus.md`) antes de auto-aprobar.
+
+| Hallazgo | Pasada 1 | Pasada 2 | Consenso |
+|----------|----------|----------|----------|
+| CRITICAL-001 (relación sede) | CRITICAL | — | **REQUIERE HUMAN REVIEW** |
+| MEDIUM-002 (resolve() semántica) | MEDIUM | — | **REQUIERE HUMAN REVIEW** |
+| MEDIUM-004 (índices faltantes) | MEDIUM | — | **REQUIERE HUMAN REVIEW** |
+| MEDIUM-005 (test fallando) | MEDIUM | — | **REQUIERE HUMAN REVIEW** |
+
+---
+
+## Archivos generados/modificados en esta review
+- Ninguno (review es de solo lectura)
+
+---
+
+**Firma:** @reviewer — `nemotron-3-ultra-free`  
+**Próximo paso:** `team-lead` debe escalar a humano para consenso en hallazgos CRITICAL/MEDIUM, o autorizar fixes y re-ejecutar review.

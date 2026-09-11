@@ -12,10 +12,9 @@
     </div>
 </div>
 
-{{-- Filtros --}}
 <div class="card mb-4">
     <div class="card-body">
-        <form method="GET" class="row g-3">
+        <x-filter-bar :action="route('academia.grupos.index')" :clear-url="route('academia.grupos.index')">
             <div class="col-md-3">
                 <label class="form-label">Nivel</label>
                 <select name="nivel" class="form-select">
@@ -46,61 +45,26 @@
             <div class="col-md-3 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">Filtrar</button>
             </div>
-        </form>
+        </x-filter-bar>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Grupo</th>
-                        <th>Nivel</th>
-                        <th>Turno</th>
-                        <th>Grado</th>
-                        <th>Modalidad</th>
-                        <th>Inscritos</th>
-                        <th>Sede</th>
-                        <th>Estado</th>
-                        <th class="text-end">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($grupos as $grupo)
-                        <tr>
-                            <td class="fw-semibold">{{ $grupo->codigo_grupo }}</td>
-                            <td>{{ $grupo->nivelRel?->descripcion ?? $grupo->nivel }}</td>
-                            <td>
-                                {{ $grupo->turno_nombre }}
-                            </td>
-                            <td>{{ $grupo->grado }}°</td>
-                            <td>
-                                {{ $grupo->modalidad_nombre }}
-                                @if ($grupo->codigo_grupo_partes['nivel_superior'])
-                                    <small class="d-block text-muted">Ingeniería/Licenciatura</small>
-                                @endif
-                            </td>
-                            <td>{{ $grupo->inscritos }}</td>
-                            <td>{{ $grupo->sede?->descripcion ?? $grupo->id_campus }}</td>
-                            <td>
-                                <span class="badge badge--status {{ $grupo->activo ? 'badge--active' : 'badge--inactive' }}">
-                                    {{ $grupo->activo ? 'Activo' : 'Inactivo' }}
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                <a href="{{ route('academia.grupos.show', $grupo) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-eye me-1"></i> Ver
-                                </a>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-{{ $grupos->links() }}
+<x-data-table
+    :headers="[
+        ['label' => 'Grupo', 'field' => 'codigo_grupo', 'class' => 'fw-semibold'],
+        ['label' => 'Nivel', 'render' => fn($grupo) => e($grupo->nivelRel?->descripcion ?? $grupo->nivel)],
+        ['label' => 'Turno', 'render' => fn($grupo) => e($grupo->turno_nombre)],
+        ['label' => 'Grado', 'render' => fn($grupo) => e($grupo->grado . '°')],
+        ['label' => 'Modalidad', 'render' => function ($grupo) { $html = e($grupo->modalidad_nombre); if ($grupo->codigo_grupo_partes['nivel_superior']) { $html .= '<small class=\"d-block text-muted\">Ingeniería/Licenciatura</small>'; } return $html; }],
+        ['label' => 'Inscritos', 'field' => 'inscritos'],
+        ['label' => 'Sede', 'render' => fn($grupo) => e($grupo->sede?->descripcion ?? $grupo->id_campus)],
+        ['label' => 'Estado', 'render' => fn($grupo) => '<span class=\"badge badge--status ' . ($grupo->activo ? 'badge--active' : 'badge--inactive') . '\">' . ($grupo->activo ? 'Activo' : 'Inactivo') . '</span>'],
+    ]"
+    :rows="$grupos"
+    :actions="[
+        ['type' => 'link', 'url' => fn($grupo) => route('academia.grupos.show', $grupo), 'style' => 'primary', 'title' => 'Ver', 'icon' => 'bi bi-eye'],
+    ]"
+    :pagination="$grupos"
+    empty-message="No se encontraron grupos"
+/>
 @endsection

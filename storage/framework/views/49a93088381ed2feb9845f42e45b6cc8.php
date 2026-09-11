@@ -5,19 +5,22 @@
 
 <div class="card shadow-sm mb-3">
     <div class="card-body">
-        <form id="employeeFilters" class="row g-3 align-items-end" method="GET">
+        <form id="employeeFilters" class="row g-3 align-items-end" method="GET"
+              action="<?php echo e(route('employees.index')); ?>">
             <div class="col-md-4">
                 <label class="form-label small mb-1" for="employeeSearch">Buscar</label>
                 <div class="input-group">
                     <span class="input-group-text bg-transparent"><i class="bi bi-search text-tertiary-token"></i></span>
-                    <input type="search" name="q" id="employeeSearch" value="<?php echo e(request('q')); ?>" class="form-control" placeholder="Buscar empleado por nombre, ID o puesto…">
+                    <input type="search" name="q" id="employeeSearch" value="<?php echo e(request('q')); ?>"
+                           class="form-control" placeholder="Buscar empleado por nombre, ID o puesto…"
+                           aria-label="Buscar empleados">
                 </div>
             </div>
 
             <?php if(!empty($cargos) && count($cargos)): ?>
                 <div class="col-md-2">
                     <label class="form-label small mb-1" for="filterCargo">Puesto</label>
-                    <select name="cargo" id="filterCargo" class="form-select">
+                    <select name="cargo" id="filterCargo" class="form-select" aria-label="Filtrar por puesto">
                         <option value="">Todos</option>
                         <?php $__currentLoopData = $cargos; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $c): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                             <option <?php if(request('cargo') === $c): echo 'selected'; endif; ?>><?php echo e($c); ?></option>
@@ -29,7 +32,7 @@
             <?php if(!empty($departamentos) && count($departamentos)): ?>
                 <div class="col-md-2">
                     <label class="form-label small mb-1" for="filterDepto">Departamento</label>
-                    <select name="departamento" id="filterDepto" class="form-select">
+                    <select name="departamento" id="filterDepto" class="form-select" aria-label="Filtrar por departamento">
                         <option value="">Todos</option>
                         <?php $__currentLoopData = $departamentos; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $d): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                             <option <?php if(request('departamento') === $d): echo 'selected'; endif; ?>><?php echo e($d); ?></option>
@@ -41,7 +44,7 @@
             <?php if(!empty($sedes) && count($sedes)): ?>
                 <div class="col-md-2">
                     <label class="form-label small mb-1" for="filterSede">Sede</label>
-                    <select name="id_campus" id="filterSede" class="form-select">
+                    <select name="id_campus" id="filterSede" class="form-select" aria-label="Filtrar por sede">
                         <option value="">Todas</option>
                         <?php $__currentLoopData = $sedes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $s): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                             <option value="<?php echo e($s->id_campus); ?>" <?php if(request('id_campus') == $s->id_campus): echo 'selected'; endif; ?>><?php echo e($s->descripcion); ?></option>
@@ -51,11 +54,58 @@
             <?php endif; ?>
 
             <div class="col-md-2 d-flex gap-2 align-items-end">
-                <button class="btn btn-primary flex-grow-1"><i class="bi bi-search me-1"></i> Filtrar</button>
+                <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-search me-1"></i> Filtrar</button>
                 <?php if(request()->hasAny(['q', 'cargo', 'departamento', 'id_campus'])): ?>
-                    <a href="<?php echo e(route('employees.index')); ?>" class="btn btn-ghost">Limpiar</a>
+                    <a href="<?php echo e(route('employees.index')); ?>" class="btn btn-ghost" aria-label="Limpiar filtros">Limpiar</a>
                 <?php endif; ?>
             </div>
+
+            
+            <?php if(request()->hasAny(['q', 'cargo', 'departamento', 'id_campus', 'sin_huella', 'sin_device'])): ?>
+                <div class="col-12 d-flex gap-2 flex-wrap align-items-center pt-1">
+                    <span class="small text-tertiary-token me-1">Activos:</span>
+                    <?php if(request('q')): ?>
+                        <span class="badge cat-blue d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-search"></i> <?php echo e(request('q')); ?>
+
+                            <a href="<?php echo e(route('employees.index', request()->except('q'))); ?>" class="ms-1 text-decoration-none" aria-label="Quitar filtro búsqueda">&times;</a>
+                        </span>
+                    <?php endif; ?>
+                    <?php if(request('cargo')): ?>
+                        <span class="badge cat-purple d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-briefcase"></i> <?php echo e(request('cargo')); ?>
+
+                            <a href="<?php echo e(route('employees.index', request()->except('cargo'))); ?>" class="ms-1 text-decoration-none" aria-label="Quitar filtro puesto">&times;</a>
+                        </span>
+                    <?php endif; ?>
+                    <?php if(request('departamento')): ?>
+                        <span class="badge cat-blue d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-building"></i> <?php echo e(request('departamento')); ?>
+
+                            <a href="<?php echo e(route('employees.index', request()->except('departamento'))); ?>" class="ms-1 text-decoration-none" aria-label="Quitar filtro departamento">&times;</a>
+                        </span>
+                    <?php endif; ?>
+                    <?php if(request('id_campus')): ?>
+                        <span class="badge cat-green d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-geo-alt"></i> Sede <?php echo e(request('id_campus')); ?>
+
+                            <a href="<?php echo e(route('employees.index', request()->except('id_campus'))); ?>" class="ms-1 text-decoration-none" aria-label="Quitar filtro sede">&times;</a>
+                        </span>
+                    <?php endif; ?>
+                    <?php if(request('sin_huella')): ?>
+                        <span class="badge cat-amber d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-fingerprint"></i> Sin huellas
+                            <a href="<?php echo e(route('employees.index', request()->except('sin_huella'))); ?>" class="ms-1 text-decoration-none" aria-label="Quitar filtro sin huellas">&times;</a>
+                        </span>
+                    <?php endif; ?>
+                    <?php if(request('sin_device')): ?>
+                        <span class="badge cat-amber d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-hdd-network"></i> Sin enrolar
+                            <a href="<?php echo e(route('employees.index', request()->except('sin_device'))); ?>" class="ms-1 text-decoration-none" aria-label="Quitar filtro sin enrolar">&times;</a>
+                        </span>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 
             
             <div class="col-12 d-flex gap-2 flex-wrap pt-1">
@@ -107,7 +157,7 @@
 
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div class="small text-tertiary-token">
+    <div id="employees-counter" class="small text-tertiary-token">
         <i class="bi bi-people me-1"></i> <?php echo e($employees->total()); ?> empleados
         <?php if(request()->hasAny(['q', 'cargo', 'departamento', 'id_campus'])): ?>
             · filtrado por
@@ -128,7 +178,7 @@
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 table-cards">
+            <table id="employees-table" class="table table-hover align-middle mb-0 table-cards">
                 <thead>
                     <tr>
                         <th style="width:28%">Empleado</th>
@@ -139,7 +189,7 @@
                         <th class="text-end" style="width:8%">Acciones</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody data-is-admin="<?php echo e(auth()->user()->isAdmin() ? '1' : '0'); ?>">
                     <?php $__empty_1 = true; $__currentLoopData = $employees; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $employee): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                         <?php
                             // ── Dispositivos y enrolamiento ──
@@ -356,19 +406,27 @@
                     <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                         <tr>
                             <td colspan="6">
-                                <?php echo $__env->make('partials.empty-state', [
-                                    'icon'     => request()->hasAny(['q','cargo','departamento','id_campus','sin_huella','sin_device'])
-                                        ? 'bi-search' : 'bi-people',
-                                    'title'    => request()->hasAny(['q','cargo','departamento','id_campus','sin_huella','sin_device'])
-                                        ? 'Sin resultados para tu filtro' : 'No hay empleados',
-                                    'desc'     => request()->hasAny(['q','cargo','departamento','id_campus','sin_huella','sin_device'])
-                                        ? 'Prueba con otro nombre, ID, puesto o departamento, o limpia los filtros.'
-                                        : 'Vacía los checadores con «Traer usuarios» o sincroniza Firebird EMPLEADOS para poblar el catálogo.',
-                                    'cta'      => auth()->user()->isAdmin()
-                                        ? ['label' => 'Agregar empleado', 'url' => route('employees.create')]
-                                        : null,
-                                    'ctaLink'  => true,
-                                ], \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>
+                                <?php if(request()->hasAny(['q','cargo','departamento','id_campus','sin_huella','sin_device'])): ?>
+                                    <div class="text-center py-5">
+                                        <i class="bi bi-search fs-1 text-secondary d-block mb-2"></i>
+                                        <p class="fw-semibold mb-1">Sin resultados para tu filtro</p>
+                                        <p class="small text-tertiary-token mb-3">Prueba con otro nombre, ID, puesto o departamento, o limpia los filtros.</p>
+                                        <a href="<?php echo e(route('employees.index')); ?>" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-x-lg me-1"></i> Limpiar filtros
+                                        </a>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="text-center py-5">
+                                        <i class="bi bi-people fs-1 text-secondary d-block mb-2"></i>
+                                        <p class="fw-semibold mb-1">No hay empleados</p>
+                                        <p class="small text-tertiary-token mb-3">Vacía los checadores con «Traer usuarios» o sincroniza Firebird EMPLEADOS para poblar el catálogo.</p>
+                                        <?php if(auth()->user()->isAdmin()): ?>
+                                            <a href="<?php echo e(route('employees.create')); ?>" class="btn btn-sm btn-primary">
+                                                <i class="bi bi-plus-lg me-1"></i> Agregar empleado
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -378,285 +436,8 @@
     </div>
 </div>
 
-<div class="mt-3"><?php echo e($employees->links()); ?></div>
 
-<?php $__env->startPush('scripts'); ?>
-<script>
-// ═══════════════════════════════════════════════════════════
-// Empleados — debounce + fetch JSON + render 6 cols
-// ═══════════════════════════════════════════════════════════
-
-function debounce(func, wait) {
-    let timeout;
-    return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-    };
-}
-
-function setLoading(isLoading) {
-    const tbody = document.querySelector('table tbody');
-    const searchInput = document.getElementById('employeeSearch');
-
-    if (isLoading) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">' +
-            '<div class="spinner-border spinner-border-sm text-primary me-2" role="status">' +
-            '<span class="visually-hidden">Cargando...</span></div>Buscando empleados...</td></tr>';
-        searchInput.disabled = true;
-    } else {
-        searchInput.disabled = false;
-    }
-}
-
-function renderEmployees(data) {
-    const tbody = document.querySelector('table tbody');
-    const pagination = document.querySelector('.pagination');
-
-    if (!data.employees.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">' +
-            '<i class="bi bi-people fs-1 text-secondary"></i>' +
-            '<p class="mt-2 mb-0">No hay empleados</p></td></tr>';
-        if (pagination) pagination.innerHTML = '';
-        return;
-    }
-
-    const isAdmin = <?php echo e(auth()->user()->isAdmin() ? 'true' : 'false'); ?>;
-
-    const rows = data.employees.map(emp => {
-        // ── Empleado (col A) ──
-        const initial = emp.name ? emp.name.charAt(0).toUpperCase() : '?';
-        const antiguedad = emp.fecha_ingreso
-            ? `<span class="mono small text-tertiary-token" title="Fecha ingreso">${emp.fecha_ingreso}</span>`
-            : '';
-
-        const empleadoHtml = `
-            <td data-label="Empleado">
-                <div class="d-flex align-items-center gap-2 min-w-0">
-                    <span class="avatar is-sm flex-shrink-0">${initial}</span>
-                    <div class="min-w-0">
-                        <div class="fw-semibold text-truncate" title="${emp.name || ''}" style="max-width:18ch">${emp.name || '—'}</div>
-                        <div class="d-flex align-items-center gap-2">
-                            <code class="small">${emp.user_id || ''}</code>
-                            ${antiguedad}
-                        </div>
-                    </div>
-                </div>
-            </td>`;
-
-        // ── Puesto (col B) ──
-        const cargo = emp.cargo || '';
-        const depto = emp.departamento || '';
-        let puestoHtml;
-        if (cargo) {
-            puestoHtml = `<td data-label="Puesto">
-                <div class="fw-semibold small text-truncate" title="${cargo}" style="max-width:20ch"><i class="bi bi-briefcase me-1 text-tertiary-token"></i>${cargo}</div>
-                ${depto ? `<div class="small text-secondary-token text-truncate" style="max-width:20ch"><i class="bi bi-building me-1"></i>${depto}</div>` : ''}
-            </td>`;
-        } else {
-            puestoHtml = `<td data-label="Puesto">
-                <span class="small text-tertiary-token">—</span>
-                ${depto ? `<div class="small text-secondary-token text-truncate" style="max-width:20ch"><i class="bi bi-building me-1"></i>${depto}</div>` : ''}
-            </td>`;
-        }
-
-        // ── Adscripción (col C) ──
-        const sedeLabel = emp.sede_label || emp.id_campus || '';
-        const contrato = emp.contrato || '';
-        const nivel = emp.nivel || '';
-        let adscripcionHtml = '<td data-label="Sede"><div class="d-flex flex-wrap gap-1 align-items-center">';
-        if (sedeLabel) {
-            adscripcionHtml += `<span class="badge cat-blue"><i class="bi bi-geo-alt me-1"></i>${sedeLabel}</span>`;
-        } else {
-            adscripcionHtml += '<span class="small text-tertiary-token">—</span>';
-        }
-        if (contrato) adscripcionHtml += `<span class="badge cat-gray">${contrato}</span>`;
-        if (nivel) adscripcionHtml += `<span class="badge cat-purple" title="Nivel ${nivel}">${nivel}</span>`;
-        adscripcionHtml += '</div></td>';
-
-        // ── Hardware (col D) ──
-        const devices = emp.devices || [];
-        const devicesCount = devices.length;
-        let hardwareHtml = '<td data-label="Hardware"><div class="d-flex flex-wrap align-items-center gap-1">';
-
-        if (devicesCount === 0) {
-            hardwareHtml += '<span class="badge cat-gray">Sin enrolar</span>';
-        } else {
-            devices.slice(0, 2).forEach(d => {
-                const pivot = d.pivot || {};
-                const tipParts = [`UID ${pivot.device_uid || ''}`];
-                if (pivot.card_number) tipParts.push(`Tarjeta ${pivot.card_number}`);
-                hardwareHtml += `<a href="${window.location.origin}/devices/${d.id}" class="ref-chip" title="${tipParts.join(' · ')}"><i class="bi bi-hdd-network"></i>${d.name}</a>`;
-            });
-            if (devicesCount > 2) {
-                const extraNames = devices.slice(2).map(d => d.name).join(', ');
-                hardwareHtml += `<span class="badge cat-gray" title="${extraNames}">+${devicesCount - 2}</span>`;
-            }
-        }
-
-        // Huellas
-        const fpCount = emp.fingerprints_count || 0;
-        const fpCat = fpCount === 0 ? 'cat-gray' : (fpCount < 3 ? 'cat-amber' : 'cat-green');
-        hardwareHtml += `<span class="badge ${fpCat}" title="${fpCount} huellas guardadas"><i class="bi bi-fingerprint me-1"></i>${fpCount}</span>`;
-
-        // Tarjeta icon
-        if (emp.has_card) {
-            hardwareHtml += '<span class="small text-tertiary-token" title="Con tarjeta RFID"><i class="bi bi-credit-card"></i></span>';
-        }
-        hardwareHtml += '</div>';
-
-        // Último sync
-        if (emp.last_sync) {
-            const syncMap = { completed: 'cat-green', failed: 'cat-red', running: 'cat-amber', queued: 'cat-gray' };
-            const sc = syncMap[emp.last_sync.status] || 'cat-gray';
-            const syncDate = emp.last_sync.finished_at || emp.last_sync.created_at || '';
-            hardwareHtml += `<div class="small mono text-tertiary-token mt-1 text-truncate" style="max-width:22ch" title="${emp.last_sync.stage || ''}${emp.last_sync.error_message ? ' · ' + emp.last_sync.error_message : ''}">
-                <span class="badge ${sc}" style="font-size:10px">${emp.last_sync.status}</span>
-                ${syncDate}
-            </div>`;
-        }
-        hardwareHtml += '</td>';
-
-        // ── Estado compuesto (col F) ──
-        const isBaja = emp.is_baja || emp.status_actual === 'B';
-        const fbStatus = emp.status_actual;
-        const enrolled = devicesCount > 0;
-        const anyActive = enrolled && devices.some(d => d.pivot && d.pivot.active);
-
-        let estadoHtml = '<td data-label="Estado">';
-        if (isBaja) {
-            estadoHtml += '<span class="badge badge-with-dot cat-gray" title="STATUSACTUAL=B Baja nómina">Baja</span>';
-        } else {
-            estadoHtml += `<span class="badge badge-with-dot cat-green" title="STATUSACTUAL=${fbStatus || 'NULL→Activo'}">Activo</span>`;
-        }
-        estadoHtml += '<div class="small mt-1">';
-        if (!enrolled) {
-            estadoHtml += '<span class="badge badge-with-dot cat-gray">Sin enrolar</span>';
-        } else if (anyActive) {
-            estadoHtml += '<span class="badge badge-with-dot cat-green">Enrolado</span>';
-        } else {
-            estadoHtml += '<span class="badge badge-with-dot cat-amber">Inactivo</span>';
-        }
-        estadoHtml += '</div></td>';
-
-        // ── Acciones (col G) ──
-        let accionesHtml = '<td data-label=""><div class="table-row-actions justify-content-end">';
-        accionesHtml += `<a href="${emp.edit_url || '#'}" class="btn btn-sm btn-ghost" title="Ver detalle / editar" aria-label="Ver ${emp.name || ''}"><i class="bi bi-eye"></i></a>`;
-
-        if (isAdmin) {
-            accionesHtml += `<a href="${emp.edit_url || '#'}" class="btn btn-sm btn-ghost" title="Editar" aria-label="Editar"><i class="bi bi-pencil"></i></a>`;
-
-            if (enrolled) {
-                const deviceIds = devices.map(d => `<input type="hidden" name="device_ids[]" value="${d.id}">`).join('');
-                accionesHtml += `<form action="${emp.sync_url || '#'}" method="POST" class="d-inline" data-sync>
-                    <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]')?.content ?? ''}">
-                    ${deviceIds}
-                    <button class="btn btn-sm btn-ghost" title="Re-sincronizar en ${devicesCount} checador(es)" aria-label="Sincronizar"><i class="bi bi-cloud-arrow-up"></i></button>
-                </form>`;
-            }
-
-            accionesHtml += `<form action="${emp.destroy_url || '#'}" method="POST" class="d-inline" data-confirm data-confirm-danger data-confirm-title="¿Quitar a ${emp.name || ''}?" data-confirm-message="Se dará de baja en todos sus checadores y, si no queda enrolado en ninguno, también del catálogo. Sus checadas históricas se conservan.">
-                <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]')?.content ?? ''}">
-                <input type="hidden" name="_method" value="DELETE">
-                <button class="btn btn-sm btn-icon-danger" title="Dar de baja" aria-label="Dar de baja"><i class="bi bi-person-x"></i></button>
-            </form>`;
-        } else {
-            devices.forEach(d => {
-                accionesHtml += `<a href="/devices/${d.id}" class="btn btn-sm btn-ghost" title="Ver ${d.name}" aria-label="Ver dispositivo ${d.name}"><i class="bi bi-box-arrow-up-right"></i></a>`;
-            });
-        }
-        accionesHtml += '</div></td>';
-
-        return `<tr>${empleadoHtml}${puestoHtml}${adscripcionHtml}${hardwareHtml}${estadoHtml}${accionesHtml}</tr>`;
-    }).join('');
-
-    tbody.innerHTML = rows;
-
-    // ── Paginación ──
-    if (pagination && data.pagination) {
-        const p = data.pagination;
-        let paginationHtml = '';
-        if (p.last_page > 1) {
-            paginationHtml = '<nav><ul class="pagination pagination-sm justify-content-center">';
-            if (p.current_page > 1) {
-                paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${p.current_page - 1}">&laquo;</a></li>`;
-            }
-            for (let i = 1; i <= p.last_page; i++) {
-                if (i === 1 || i === p.last_page || (i >= p.current_page - 2 && i <= p.current_page + 2)) {
-                    paginationHtml += `<li class="page-item ${i === p.current_page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
-                } else if (i === p.current_page - 3 || i === p.current_page + 3) {
-                    paginationHtml += '<li class="page-item disabled"><span class="page-link">...</span></li>';
-                }
-            }
-            if (p.current_page < p.last_page) {
-                paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${p.current_page + 1}">&raquo;</a></li>`;
-            }
-            paginationHtml += '</ul></nav>';
-        }
-        pagination.innerHTML = paginationHtml;
-
-        pagination.querySelectorAll('a.page-link[data-page]').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                fetchEmployees(link.dataset.page);
-            });
-        });
-    }
-}
-
-async function fetchEmployees(page = 1) {
-    const search = document.getElementById('employeeSearch').value;
-    const cargoEl = document.getElementById('filterCargo');
-    const deptoEl = document.getElementById('filterDepto');
-    const sedeEl = document.getElementById('filterSede');
-
-    setLoading(true);
-
-    try {
-        const url = new URL('<?php echo e(route("employees.search")); ?>', window.location.origin);
-        url.searchParams.set('q', search);
-        url.searchParams.set('page', page);
-        url.searchParams.set('status', '<?php echo e($status); ?>');
-        if (cargoEl && cargoEl.value) url.searchParams.set('cargo', cargoEl.value);
-        if (deptoEl && deptoEl.value) url.searchParams.set('departamento', deptoEl.value);
-        if (sedeEl && sedeEl.value) url.searchParams.set('id_campus', sedeEl.value);
-
-        const response = await fetch(url, {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            credentials: 'same-origin'
-        });
-
-        if (!response.ok) throw new Error('Error en la petición');
-
-        const data = await response.json();
-        renderEmployees(data);
-    } catch (error) {
-        console.error('Error fetching employees:', error);
-        setLoading(false);
-        const tbody = document.querySelector('table tbody');
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-danger">' +
-            '<i class="bi bi-exclamation-triangle"></i> Error al cargar empleados. ' +
-            '<button class="btn btn-sm btn-link" onclick="fetchEmployees()">Reintentar</button></td></tr>';
-    }
-}
-
-// ── Eventos de búsqueda y filtros ──
-const searchDebounced = debounce(() => fetchEmployees(1), 300);
-document.getElementById('employeeSearch').addEventListener('input', searchDebounced);
-
-['filterCargo', 'filterDepto', 'filterSede'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('change', () => fetchEmployees(1));
-});
-
-// ── Paginación delegada ──
-document.addEventListener('click', (e) => {
-    if (e.target.matches('.pagination a.page-link[data-page]')) {
-        e.preventDefault();
-        fetchEmployees(e.target.dataset.page);
-    }
-});
-</script>
-<?php $__env->stopPush(); ?>
+<div id="employees-pagination" class="mt-3"><?php echo e($employees->links()); ?></div>
 
 <?php $__env->stopSection(); ?>
 

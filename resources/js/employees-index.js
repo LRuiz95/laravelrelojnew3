@@ -32,6 +32,13 @@
         };
     }
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    }
+
     function setLoading(isLoading) {
         if (isLoading) {
             tbody.setAttribute('aria-busy', 'true');
@@ -72,19 +79,20 @@
 
     // ── Build a single <tr> from JSON employee data ──
     function buildRow(emp, isAdmin) {
+        const e = escapeHtml;
         const initial = emp.name ? emp.name.charAt(0).toUpperCase() : '?';
         const antiguedad = emp.fecha_ingreso
-            ? '<span class="mono small text-tertiary-token" title="Fecha ingreso ' + emp.fecha_ingreso + '">' + emp.fecha_ingreso + '</span>'
+            ? '<span class="mono small text-tertiary-token" title="Fecha ingreso ' + e(emp.fecha_ingreso) + '">' + e(emp.fecha_ingreso) + '</span>'
             : '';
 
         const empleadoHtml =
             '<td data-label="Empleado">' +
             '<div class="d-flex align-items-center gap-2 min-w-0">' +
-            '<span class="avatar is-sm flex-shrink-0">' + initial + '</span>' +
+            '<span class="avatar is-sm flex-shrink-0">' + e(initial) + '</span>' +
             '<div class="min-w-0">' +
-            '<div class="fw-semibold text-truncate" title="' + (emp.name || '') + '" style="max-width:18ch">' + (emp.name || '—') + '</div>' +
+            '<div class="fw-semibold text-truncate" title="' + e(emp.name || '') + '" style="max-width:18ch">' + e(emp.name || '—') + '</div>' +
             '<div class="d-flex align-items-center gap-2">' +
-            '<code class="small">' + (emp.user_id || '') + '</code>' +
+            '<code class="small">' + e(emp.user_id || '') + '</code>' +
             antiguedad +
             '</div></div></div></td>';
 
@@ -95,14 +103,14 @@
         if (cargo) {
             puestoHtml =
                 '<td data-label="Puesto">' +
-                '<div class="fw-semibold small text-truncate" title="' + cargo + '" style="max-width:20ch"><i class="bi bi-briefcase me-1 text-tertiary-token"></i>' + cargo + '</div>' +
-                (depto ? '<div class="small text-secondary-token text-truncate" style="max-width:20ch"><i class="bi bi-building me-1"></i>' + depto + '</div>' : '') +
+                '<div class="fw-semibold small text-truncate" title="' + e(cargo) + '" style="max-width:20ch"><i class="bi bi-briefcase me-1 text-tertiary-token"></i>' + e(cargo) + '</div>' +
+                (depto ? '<div class="small text-secondary-token text-truncate" style="max-width:20ch"><i class="bi bi-building me-1"></i>' + e(depto) + '</div>' : '') +
                 '</td>';
         } else {
             puestoHtml =
                 '<td data-label="Puesto">' +
                 '<span class="small text-tertiary-token">—</span>' +
-                (depto ? '<div class="small text-secondary-token text-truncate" style="max-width:20ch"><i class="bi bi-building me-1"></i>' + depto + '</div>' : '') +
+                (depto ? '<div class="small text-secondary-token text-truncate" style="max-width:20ch"><i class="bi bi-building me-1"></i>' + e(depto) + '</div>' : '') +
                 '</td>';
         }
 
@@ -112,12 +120,12 @@
         const nivel = emp.nivel || '';
         let adscripcionHtml = '<td data-label="Sede"><div class="d-flex flex-wrap gap-1 align-items-center">';
         if (sedeLabel) {
-            adscripcionHtml += '<span class="badge cat-blue" title="' + (emp.id_campus ? 'ID_CAMPUS ' + emp.id_campus : '') + '"><i class="bi bi-geo-alt me-1"></i>' + sedeLabel + '</span>';
+            adscripcionHtml += '<span class="badge cat-blue" title="' + (emp.id_campus ? 'ID_CAMPUS ' + e(emp.id_campus) : '') + '"><i class="bi bi-geo-alt me-1"></i>' + e(sedeLabel) + '</span>';
         } else {
             adscripcionHtml += '<span class="small text-tertiary-token">—</span>';
         }
-        if (contrato) adscripcionHtml += '<span class="badge cat-gray">' + contrato + '</span>';
-        if (nivel) adscripcionHtml += '<span class="badge cat-purple" title="Nivel ' + nivel + '">' + nivel + '</span>';
+        if (contrato) adscripcionHtml += '<span class="badge cat-gray">' + e(contrato) + '</span>';
+        if (nivel) adscripcionHtml += '<span class="badge cat-purple" title="Nivel ' + e(nivel) + '">' + e(nivel) + '</span>';
         adscripcionHtml += '</div></td>';
 
         // Hardware
@@ -130,12 +138,12 @@
         } else {
             devices.slice(0, 2).forEach(function (d) {
                 const pivot = d.pivot || {};
-                const tipParts = ['UID ' + (pivot.device_uid || '')];
-                if (pivot.card_number) tipParts.push('Tarjeta ' + pivot.card_number);
-                hardwareHtml += '<a href="' + window.location.origin + '/devices/' + d.id + '" class="ref-chip" title="' + tipParts.join(' · ') + '"><i class="bi bi-hdd-network"></i>' + d.name + '</a>';
+                const tipParts = ['UID ' + e(pivot.device_uid || '')];
+                if (pivot.card_number) tipParts.push('Tarjeta ' + e(pivot.card_number));
+                hardwareHtml += '<a href="' + window.location.origin + '/devices/' + d.id + '" class="ref-chip" title="' + tipParts.join(' · ') + '"><i class="bi bi-hdd-network"></i>' + e(d.name) + '</a>';
             });
             if (devicesCount > 2) {
-                const extraNames = devices.slice(2).map(function (d) { return d.name; }).join(', ');
+                const extraNames = devices.slice(2).map(function (d) { return e(d.name); }).join(', ');
                 hardwareHtml += '<span class="badge cat-gray" title="' + extraNames + '">+' + (devicesCount - 2) + '</span>';
             }
         }
@@ -156,9 +164,9 @@
             var syncMap = { completed: 'cat-green', failed: 'cat-red', running: 'cat-amber', queued: 'cat-gray' };
             var sc = syncMap[emp.last_sync.status] || 'cat-gray';
             var syncDate = emp.last_sync.finished_at || emp.last_sync.created_at || '';
-            hardwareHtml += '<div class="small mono text-tertiary-token mt-1 text-truncate" style="max-width:22ch" title="' + (emp.last_sync.stage || '') + (emp.last_sync.error_message ? ' · ' + emp.last_sync.error_message : '') + '">' +
-                '<span class="badge ' + sc + '" style="font-size:10px">' + emp.last_sync.status + '</span> ' +
-                syncDate + '</div>';
+            hardwareHtml += '<div class="small mono text-tertiary-token mt-1 text-truncate" style="max-width:22ch" title="' + e(emp.last_sync.stage || '') + (emp.last_sync.error_message ? ' · ' + e(emp.last_sync.error_message) : '') + '">' +
+                '<span class="badge ' + sc + '" style="font-size:10px">' + e(emp.last_sync.status) + '</span> ' +
+                e(syncDate) + '</div>';
         }
         hardwareHtml += '</td>';
 
@@ -172,7 +180,7 @@
         if (isBaja) {
             estadoHtml += '<span class="badge badge-with-dot cat-gray" title="STATUSACTUAL=B Baja nómina">Baja</span>';
         } else {
-            estadoHtml += '<span class="badge badge-with-dot cat-green" title="STATUSACTUAL=' + (fbStatus || 'NULL→Activo') + '">Activo</span>';
+            estadoHtml += '<span class="badge badge-with-dot cat-green" title="STATUSACTUAL=' + e(fbStatus || 'NULL→Activo') + '">Activo</span>';
         }
         estadoHtml += '<div class="small mt-1">';
         if (!enrolled) {
@@ -186,7 +194,7 @@
 
         // Acciones
         let accionesHtml = '<td data-label=""><div class="table-row-actions justify-content-end">';
-        accionesHtml += '<a href="' + (emp.edit_url || '#') + '" class="btn btn-sm btn-ghost" title="Ver detalle / editar" aria-label="Ver ' + (emp.name || '') + '"><i class="bi bi-eye"></i></a>';
+        accionesHtml += '<a href="' + (emp.edit_url || '#') + '" class="btn btn-sm btn-ghost" title="Ver detalle / editar" aria-label="Ver ' + e(emp.name || '') + '"><i class="bi bi-eye"></i></a>';
 
         if (isAdmin) {
             accionesHtml += '<a href="' + (emp.edit_url || '#') + '" class="btn btn-sm btn-ghost" title="Editar" aria-label="Editar"><i class="bi bi-pencil"></i></a>';
@@ -200,14 +208,14 @@
             }
 
             accionesHtml += '<form action="' + (emp.destroy_url || '#') + '" method="POST" class="d-inline" data-confirm data-confirm-danger ' +
-                'data-confirm-title="¿Quitar a ' + (emp.name || '') + '?" ' +
+                'data-confirm-title="¿Quitar a ' + e(emp.name || '') + '?" ' +
                 'data-confirm-message="Se dará de baja en todos sus checadores y, si no queda enrolado en ninguno, también del catálogo. Sus checadas históricas se conservan.">' +
                 '<input type="hidden" name="_token" value="' + CSRF_TOKEN + '">' +
                 '<input type="hidden" name="_method" value="DELETE">' +
                 '<button class="btn btn-sm btn-icon-danger" title="Dar de baja" aria-label="Dar de baja"><i class="bi bi-person-x"></i></button></form>';
         } else {
             devices.forEach(function (d) {
-                accionesHtml += '<a href="/devices/' + d.id + '" class="btn btn-sm btn-ghost" title="Ver ' + d.name + '" aria-label="Ver dispositivo ' + d.name + '"><i class="bi bi-box-arrow-up-right"></i></a>';
+                accionesHtml += '<a href="/devices/' + d.id + '" class="btn btn-sm btn-ghost" title="Ver ' + e(d.name) + '" aria-label="Ver dispositivo ' + e(d.name) + '"><i class="bi bi-box-arrow-up-right"></i></a>';
             });
         }
         accionesHtml += '</div></td>';

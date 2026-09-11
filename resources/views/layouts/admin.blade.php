@@ -219,7 +219,7 @@
                 </button>
                 @php
     $cicloActual = app(\App\Services\CicloActualService::class)->current(request());
-    $ciclosDisponibles = \App\Models\Academia\Ciclo::activo()
+    $ciclosDisponibles = \App\Models\Academia\Ciclo::query()
         ->orderByDesc('inicial')
         ->orderByDesc('final')
         ->orderByDesc('periodo')

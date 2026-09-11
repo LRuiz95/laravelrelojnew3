@@ -74,6 +74,17 @@
     </div>
 </div>
 
+<?php if($ciclos->isEmpty()): ?>
+    <div class="text-center py-5">
+        <i class="bi bi-calendar-x text-secondary" style="font-size: 3rem;"></i>
+        <h5 class="mt-3 text-secondary">No hay ciclos registrados</h5>
+        <p class="text-muted">Crea tu primer ciclo escolar para comenzar.</p>
+        <a href="<?php echo e(route('academia.ciclos.create')); ?>" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Crear primer ciclo
+        </a>
+    </div>
+<?php endif; ?>
+
 
 <?php echo e($ciclos->links()); ?>
 

@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\DeprovisionEmployeeJob;
 use App\Jobs\SyncEmployeeToDeviceJob;
+use App\Models\Academia\Sede;
 use App\Models\Device;
 use App\Models\DeviceSync;
 use App\Models\Employee;
@@ -56,10 +57,9 @@ class EmployeeController extends Controller
         // Opciones de filtros (distinct, limitadas para performance)
         $cargos = Employee::whereNotNull('cargo')->where('cargo', '!=', '')->distinct()->pluck('cargo')->sort()->values();
         $departamentos = Employee::whereNotNull('departamento')->where('departamento', '!=', '')->distinct()->pluck('departamento')->sort()->values();
-        $sedes = Employee::whereNotNull('id_campus')->where('id_campus', '!=', '')
-            ->join('campus', 'employees.id_campus', '=', 'campus.id_campus')
-            ->select('campus.id_campus', 'campus.descripcion')
-            ->distinct()
+        $sedes = Sede::query()
+            ->orderBy('descripcion')
+            ->select(['id_campus', 'descripcion'])
             ->get();
 
         return view('employees.index', [

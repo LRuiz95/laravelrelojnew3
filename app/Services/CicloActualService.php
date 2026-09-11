@@ -65,10 +65,9 @@ public function resolve(Request $request): Ciclo
     public function getDefaultCiclo(): Ciclo
     {
         $ciclo = Ciclo::query()
-            ->activo()
-            ->latest('inicial')
-            ->latest('final')
-            ->latest('periodo')
+            ->orderByDesc('inicial')
+            ->orderByDesc('final')
+            ->orderByDesc('periodo')
             ->first();
 
         if (! $ciclo) {
@@ -111,7 +110,7 @@ public function resolve(Request $request): Ciclo
 
     public function getAllForSelector(): \Illuminate\Support\Collection
     {
-        return Ciclo::activo()
+        return Ciclo::query()
             ->orderByDesc('inicial')
             ->orderByDesc('final')
             ->orderByDesc('periodo')

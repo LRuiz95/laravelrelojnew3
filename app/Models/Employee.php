@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Academia\Sede;
 use App\Models\Pivots\DeviceEmployee;
 use App\Models\DeviceSync;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -70,6 +72,11 @@ class Employee extends Model
     public function syncs(): HasMany
     {
         return $this->hasMany(DeviceSync::class);
+    }
+
+    public function sede(): BelongsTo
+    {
+        return $this->belongsTo(Sede::class, 'id_campus', 'id_campus');
     }
 
     public static function roles(): array

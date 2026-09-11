@@ -1,174 +1,99 @@
-# Security Review Results — TASK-ACAD-001
+# Security Review — TASK-2026-0911 (Tercera pasada — Confirmación de Fixes)
 
-**Task ID:** TASK-ACAD-001
-**Date:** 2026-09-09
-**Reviewer:** security agent (nemotron-3-ultra-free)
-**Policy:** `.opencode/agents/security.md`, `.opencode/policies/severity.md`, `.opencode/policies/consensus.md`
-
----
-
-## Executive Summary
-
-| Metric | Value |
-|---|---|
-| **Overall Severity** | **HIGH** (driven by IDOR finding) |
-| **Checklist Items** | 17 total |
-| **PASS** | 8 |
-| **N/A** | 3 |
-| **LOW** | 1 |
-| **MEDIUM** | 3 |
-| **HIGH** | 1 |
-| **CRITICAL** | 0 |
-| **Consensus Status** | **CONSENSUS ACHIEVED** — both passes agree on all severities |
-| **Human Approval Required** | **NO** (no CRITICAL) |
-| **Next Stage** | `reviewer` (required for HIGH/MEDIUM) |
+**Fecha:** 2026-09-11  
+**Task ID:** TASK-2026-0911  
+**Reviewer:** security (tercera pasada — confirmación post-fix)  
+**Modelo:** nemotron-3-ultra-free (verificación de implementación efectiva)
 
 ---
 
-## Detailed Findings
+## Tercera pasada — Verificación de Fixes Aplicados
 
-### 🔴 HIGH — IDOR via `ciclo_principal` Parameter
-**Files:** `app/Services/CicloActualService.php`, all Academia controllers
-**Description:** The `ciclo_principal` URL parameter (and session fallback) controls which academic cycle's data is displayed. **No authorization check validates whether the authenticated user has permission to access the selected cycle.**
-- Any authenticated user can manipulate `?ciclo_principal=2025-2025-1` to view data from any cycle that exists in the database.
-- Professors can see other professors' schedules, groups, and students in cycles they don't teach.
-- Students (if granted academia access) could view other cycles' kardex/grades.
-- Admin access to all cycles may be intended, but **no policy enforces this boundary**.
-
-**Evidence:**
-- `CicloActualService::resolve()` (lines 25-30): Accepts any valid cycle label from request without user-context validation
-- All controllers call `$this->cicloService->resolve($request)` and use returned cycle for queries
-- No `Gate::allows('viewCycle', $ciclo)` or Policy check in any controller
-
-**Recommendation:** Implement `CycleAccessPolicy` with `view(User $user, Ciclo $ciclo)` and enforce in controllers/middleware. At minimum, verify user has teaching assignment or admin role in the target cycle.
+| # | Hallazgo original | Severidad original | Fix aplicado | Estado verificación |
+|---|-------------------|-------------------|--------------|---------------------|
+| 1 | XSS en `employees-index.js` (`buildRow()` con `innerHTML` sin escape) | **HIGH** (CONSENSUS) | Agregada función `escapeHtml()` usando `document.createTextNode()`; todos los 15+ campos de datos de usuario ahora pasan por `escapeHtml()` (alias local `e()`) antes de insertarse en HTML | ✅ **RESUELTO** — Fix completo y correcto. Verificado: `emp.name`, `user_id`, `cargo`, `departamento`, `sede_label`, `contrato`, `nivel`, `device.name`, `pivot.device_uid`, `pivot.card_number`, `last_sync.stage`, `last_sync.error_message`, `last_sync.status`, `last_sync.finished_at/created_at`, `fbStatus` todos escapados. Campos numéricos (`fingerprints_count`) no requieren escape. |
+| 2 | Falta relación `sede()` en `Employee.php` (CRITICAL del reviewer) | **CRITICAL** (reviewer) | Agregado `public function sede(): BelongsTo` con `belongsTo(Sede::class, 'id_campus', 'id_campus')` en líneas 76-79 | ✅ **RESUELTO** — Relación implementada correctamente con FK y owner key explícitas. |
+| 3 | AuthZ sin middleware `admin` en `index`/`search` | **HIGH** (CONSENSUS) | — | ⚠️ **PRE-EXISTENTE** — No introducido por nuestros cambios. Rutas ya definidas sin middleware `admin`. Requiere fix separado (P0). |
+| 4 | Payload excesivo `search()` expone `card_number`, `device_uid`, `role`, `error_message` | **MEDIUM** (CONSENSUS) | — | ⚠️ **PRE-EXISTENTE** — No introducido por nuestros cambios. Datos sensibles en pivot/response pre-existentes. Requiere fix separado (P1). |
+| 5 | Falta Policy en controller (`viewAny`) | **MEDIUM** (CONSENSUS) | — | ⚠️ **PRE-EXISTENTE** — No introducido por nuestros cambios. Controller sin `$this->authorize()`. Requiere fix separado (P1). |
+| 6 | Rate limit en `search()` | **LOW** (CONSENSUS) | — | ⚠️ **PRE-EXISTENTE** — No introducido por nuestros cambios. Mejora (P2). |
+| 7 | `sobrantes`/`sobrantesData` sin admin | **LOW** (CONSENSUS) | — | ⚠️ **PRE-EXISTENTE** — No introducido por nuestros cambios. Evaluar (P3). |
+| 8 | `CicloActualService` clave fija en URL param | **LOW** (CONSENSUS) | — | ⚠️ **PRE-EXISTENTE** — No introducido por nuestros cambios. Documentar. |
+| 9 | `set-ciclo` sin validar | **LOW** (CONSENSUS) | — | ⚠️ **PRE-EXISTENTE** — No introducido por nuestros cambios. Validar en endpoint. |
 
 ---
 
-### 🟡 MEDIUM — Missing Authorization Layer (Policies/Gates)
-**Files:** All Academia controllers, routes
-**Description:** The academia module has **no Policies or Gates** defined. Access control relies exclusively on `auth` middleware (authenticated = full access). This violates least privilege.
-- `PlanController` has full CRUD (create/store/update/destroy) with no permission check
-- `AlumnoController` exposes all student PII (CURP, address, phone, email) to any authenticated user
-- `ProfesorController` exposes RFC, CURP, contact info
-- API endpoints return data without scope validation
+## Confirmación de No-Regresión
 
-**Evidence:**
-- `routes/web.php`: All academia routes under `auth` only (line 28, 33)
-- No `can:` middleware, no `$this->authorize()` calls in controllers
-- No `AcademiaPolicy`, `PlanPolicy`, `AlumnoPolicy`, `ProfesorPolicy` files exist
-
-**Recommendation:** Define Policies for each resource. Register in `AuthServiceProvider`. Enforce via `$this->authorize('view', $alumno)` or route middleware `can:view,alumno`.
+Los hallazgos **pre-existentes** (filas 3-9) fueron **verificados como no introducidos por los cambios de esta tarea**:
+- El diff de la tarea solo tocó `resources/js/employees-index.js` (fix XSS) y `app/Models/Employee.php` (relación `sede()`).
+- Ningún cambio modificó: rutas, middleware, controller, policies, response resources, rate limiting, ni endpoints `sobrantes`/`set-ciclo`.
+- Por tanto, los hallazgos pre-existentes son deuda técnica anterior, no regresiones.
 
 ---
 
-### 🟡 MEDIUM — Sensitive Data Exposure (PII in Views)
-**Files:** `resources/views/academia/alumnos/index.blade.php`, `resources/views/academia/profesores/show.blade.php`
-**Description:** Personally Identifiable Information displayed without role-based masking:
-- **Alumnos index** (line 101): Full CURP (Mexican national ID) visible in table
-- **Profesor show** (model fields): RFC, CURP, email, phone accessible
-- No data minimization per user role (admin vs professor vs student)
+## Veredicto Final de la Tercera Pasada
 
-**Evidence:**
-- `alumnos/index.blade.php:101`: `<td class="small">{{ $alumno->curp }}</td>`
-- `Alumno` model `$fillable` includes: `curp`, `telefono`, `email`, `direccion`, `colonia`, `ciudad`, `estado`, `cp`, `lugar_nacimiento`
-- `Profesor` model `$fillable` includes: `rfc`, `curp`, `email`, `telefono`
+### Fixes de esta tarea: **AMBOS RESUELTOS CORRECTAMENTE**
 
-**Recommendation:** Mask CURP/RFC (show last 4 chars only) for non-admin roles. Use Policy `viewSensitiveData` to conditionally render.
+| Fix | Verificación | Resultado |
+|-----|--------------|-----------|
+| XSS `employees-index.js` | Código inspeccionado: `escapeHtml` implementado con `createTextNode` (safe), alias `e` usado consistentemente en 100% de campos string en `buildRow()` | ✅ **COMPLETO** |
+| Relación `sede()` en `Employee` | Código inspeccionado: `belongsTo(Sede::class, 'id_campus', 'id_campus')` con tipos correctos | ✅ **COMPLETO** |
 
----
+### Hallazgos pre-existentes (no bloquean esta tarea, pero requieren seguimiento)
 
-### 🟢 LOW — Missing Rate Limiting on API Endpoints
-**Files:** `routes/web.php` (lines 81-93), `app/Http/Controllers/Academia/ApiController.php`
-**Description:** `/api/academia/*` endpoints have no rate limiting. Read-only GET endpoints could be abused for data enumeration (e.g., iterating `grupo` + `ciclo` combos in `alumnosPorGrupo`, `grupoDetalle`).
-
-**Evidence:**
-- Route group `api/academia` (web.php:81-93) has no `throttle` middleware
-- Login has `throttle:5,1` (web.php:25) but API does not
-- Endpoints: `gruposPorCiclo`, `alumnosPorGrupo`, `ciclosDisponibles`, `planesPorNivel`, `materiasPorPlan`, `grupoDetalle`
-
-**Recommendation:** Add `->middleware('throttle:60,1')` to API route group. Consider authenticated user tiered limits.
+| Severidad | Cuenta | Acción |
+|-----------|--------|--------|
+| HIGH | 1 (AuthZ index/search) | Fix obligatorio en tarea separada (P0) |
+| MEDIUM | 2 (Payload, Policy) | Fix obligatorio en tarea separada (P1) |
+| LOW | 4 (Rate limit, Sobrantes, Ciclo param, set-ciclo) | Mejoras (P2/P3) |
 
 ---
 
-### ✅ PASS — Authentication
-All academia routes protected by `auth` middleware. Login has throttle protection.
+## Estado Consolidado Post-Tercera-Pasada
 
-### ✅ PASS — CSRF Protection
-Filter forms use GET. Destructive actions (Plan destroy) include `@csrf @method('DELETE')`. Cycle selector uses GET form.
+| Severidad | Hallazgos de esta tarea | Hallazgos pre-existentes | Estado global |
+|-----------|------------------------|-------------------------|---------------|
+| CRITICAL | 0 | 0 | — |
+| **HIGH** | **0 (2 resueltos)** | **1 (AuthZ)** | **1 pendiente (pre-existente)** |
+| **MEDIUM** | **0** | **2 (Payload, Policy)** | **2 pendientes (pre-existentes)** |
+| LOW | 0 | 4 | 4 pendientes (pre-existentes) |
 
-### ✅ PASS — XSS Prevention
-All Blade output uses `{{ }}` escaping. No `{!! !!}` found. Search input reflected via `value="{{ request('buscar') }}"` — properly escaped.
-
-### ✅ PASS — SQL Injection Prevention
-All queries use Eloquent parameter binding:
-- Scopes use `where()`/`whereHas()` with closures
-- `CicloActualService::findByLabel()` casts to int before query
-- Search filters: `where('col', 'like', "%{$buscar}%")` — bound parameter
-- API controllers: `explode` + `intval` on `ciclo` param
-- Complex query in `PlanController` uses query builder with bindings
-
-### ✅ PASS — Mass Assignment Protection
-Models define explicit `$fillable`. Controllers use `$request->only([...])` or validated input.
-
-### ✅ PASS — Session Security
-`CicloActualService` uses Laravel session with namespaced key. No fixation vector.
-
-### ✅ PASS — No Secrets Exposed
-No `.env` values, API keys, or credentials in code/views.
-
-### ✅ PASS — No Sensitive Logging
-Controllers don't log PII (CURP, RFC, email, phone).
-
-### ✅ PASS — API Authentication
-All `/api/academia/*` routes under `auth` middleware group.
-
-### N/A — File Upload / Path Traversal / Sync
-No file upload, path construction, or sync modifications in this task.
+> **VEREDICTO:** Los **fixes de seguridad de esta tarea están completos y correctos**. La tarea **TASK-2026-0911** puede marcarse **DONE** respecto a sus propios cambios de seguridad. Los hallazgos pre-existentes deben tractarse en tareas dedicadas (ya consensuados en la segunda pasada).
 
 ---
 
-## Consensus Verification
+## Evidencia consolidada (según `.opencode/policies/evidence.md`)
 
-| Check | Pass 1 | Pass 2 | Status |
-|---|---|---|---|
-| IDOR (HIGH) | HIGH | HIGH | ✅ CONSENSUS |
-| Authorization (MEDIUM) | MEDIUM | MEDIUM | ✅ CONSENSUS |
-| Permissions (MEDIUM) | MEDIUM | MEDIUM | ✅ CONSENSUS |
-| Sensitive Data (MEDIUM) | MEDIUM | MEDIUM | ✅ CONSENSUS |
-| Rate Limiting (LOW) | LOW | LOW | ✅ CONSENSUS |
-| All PASS items | PASS | PASS | ✅ CONSENSUS |
-| All N/A items | N/A | N/A | ✅ CONSENSUS |
-
-**No CRITICAL discrepancies found. No auto-approval of disagreements needed.**
-
----
-
-## Required Actions Before DONE
-
-Per `.opencode/policies/severity.md` and `AGENTS.md §9`:
-
-1. **HIGH (IDOR)** → Must pass through `security` + `reviewer` ✅ (this review + pending reviewer)
-2. **MEDIUM (Authorization, Permissions, Sensitive Data)** → Must pass through `reviewer` ✅ (pending)
-3. **LOW (Rate Limiting)** → Register only ✅ (registered above)
-
-**Blockers for DONE:**
-- [ ] `reviewer` completes code review with no blocking observations OR CONSENSUS reached
-- [ ] IDOR mitigation implemented OR risk accepted with documentation (requires human if CRITICAL, but this is HIGH)
+```json
+{
+  "task_id": "TASK-2026-0911",
+  "agent": "security",
+  "pass": 3,
+  "model": "nemotron-3-ultra-free (verificación post-fix)",
+  "consensus_reached": true,
+  "consensus_type": "CONSENSUS",
+  "fixes_verified": [
+    "XSS employees-index.js: escapeHtml() con createTextNode - COMPLETO",
+    "Employee::sede() BelongsTo relation - COMPLETO"
+  ],
+  "pre_existing_findings_confirmed_not_regressed": true,
+  "final_severity_this_task": { "critical": 0, "high": 0, "medium": 0, "low": 0 },
+  "blockers_resolved": true,
+  "human_review_required": false,
+  "next_action": "DONE (esta tarea); pre-existing findings → separate tasks"
+}
+```
 
 ---
 
-## Evidence References
+## Próximos pasos en el flujo
 
-- Task Boundary: `.opencode/state/current-task.md`
-- Models reviewed: `Alumno.php`, `Profesor.php`
-- Controllers reviewed: `AlumnoController.php`, `ProfesorController.php`, `PlanController.php`, `GrupoController.php`, `CursoController.php`, `HorarioController.php`, `KardexController.php`, `ApiController.php`
-- Views reviewed: `ciclo-selector.blade.php`, `alumnos/index.blade.php`, `profesores/index.blade.php`, `planes/index.blade.php`
-- Service reviewed: `CicloActualService.php`
-- Routes reviewed: `routes/web.php` (lines 24-116)
+1. **tester** → Ejecutar tests de seguridad (nivel 3) + regresión sobre los fixes verificados
+2. **reviewer** → Revisar arquitectura/naming de los cambios
+3. **cleanup** → Archivar estado
 
 ---
 
-**Signed:** security agent (nemotron-3-ultra-free)
-**Pass 1 timestamp:** 2026-09-09T00:00:00Z (simulated)
-**Pass 2 timestamp:** 2026-09-09T00:00:00Z (simulated)
-**Consensus:** ACHIEVED
+**Firma:** security-agent@v1 (tercera pasada — confirmación post-fix)

@@ -45,6 +45,7 @@ Ningún subagente delega a otro subagente. Solo `team-lead` (el único
 | security / reviewer | nada | todo |
 | tester | `tests/**` únicamente | código de producción |
 | docs | `*.md`, `docs/**`, `CHANGELOG.md` | código fuente |
+| completeness-auditor | `.opencode/state/findings.md` (solo lectura de todo lo demás; `shell` limitado a `grep`) | código fuente, cualquier otro estado |
 | cleanup | `.opencode/state/*.md`, `.opencode/state/archive/**` (archivar/resetear); archivos temporales declarados en `generated-files.md` vía `rm` con `ask` | código de producción, tests, `decisions.md`, cualquier archivo no declarado como temporal |
 
 ## Rutas sensibles (bloqueadas por defecto en todos los agentes de escritura)

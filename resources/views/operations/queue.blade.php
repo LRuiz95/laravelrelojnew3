@@ -15,7 +15,7 @@
 
 <div class="card shadow-sm mb-3">
     <div class="card-body">
-        <form class="row g-2 align-items-end" method="GET">
+        <x-filter-bar :action="route('operations.queue')" :clear-url="route('operations.queue')">
             <div class="col-md-2">
                 <label class="form-label small mb-1" for="type">Tipo</label>
                 <select class="form-select" id="type" name="type">
@@ -42,11 +42,10 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <button class="btn btn-primary w-100"><i class="bi bi-funnel me-1"></i>Filtrar</button>
             </div>
-            <div class="col-md-2"><a href="{{ route('operations.queue') }}" class="btn btn-link">Limpiar filtros</a></div>
-        </form>
+        </x-filter-bar>
     </div>
 </div>
 <div class="d-flex gap-2 mb-2">

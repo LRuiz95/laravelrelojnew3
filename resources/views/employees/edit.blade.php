@@ -86,6 +86,30 @@
                             </div>
                             <div class="form-text">Bajas se gestionan desde la tabla con confirmación.</div>
                         </div>
+                        <div class="col-md-6">
+                            <label for="area_id" class="form-label">Área</label>
+                            <select id="area_id" name="area_id" class="form-select @error('area_id') is-invalid @enderror">
+                                <option value="">Sin área</option>
+                                @foreach ($areas as $area)
+                                    <option value="{{ $area->id }}" @selected(old('area_id', $employee->area_id) == $area->id)>
+                                        {{ $area->identificador }} - {{ $area->descripcion }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('area_id') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label for="puesto_id" class="form-label">Puesto</label>
+                            <select id="puesto_id" name="puesto_id" class="form-select @error('puesto_id') is-invalid @enderror">
+                                <option value="">Sin puesto</option>
+                                @foreach ($puestos as $puesto)
+                                    <option value="{{ $puesto->id }}" @selected(old('puesto_id', $employee->puesto_id) == $puesto->id)>
+                                        {{ $puesto->identificador }} - {{ $puesto->descripcion }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('puesto_id') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                        </div>
                     </div>
                 </form>
             </div>

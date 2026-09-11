@@ -22,6 +22,9 @@ class Profesor extends Model
         'paterno',
         'materno',
         'departamento',
+        'area_id',
+        'puesto_id',
+        'director_id',
         'contrato',
         'status_actual',
         'origen_horario',
@@ -51,6 +54,21 @@ class Profesor extends Model
     public function sede(): BelongsTo
     {
         return $this->belongsTo(Sede::class, 'id_campus', 'id_campus');
+    }
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Area::class, 'area_id');
+    }
+
+    public function puesto(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Puesto::class, 'puesto_id');
+    }
+
+    public function director(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Employee::class, 'director_id');
     }
 
     public function horarios(): HasMany

@@ -21,7 +21,7 @@
 
 <div class="card shadow-sm mb-3">
     <div class="card-body">
-        <form id="attendanceFilters" class="filter-row" method="GET">
+        <x-filter-bar id="attendanceFilters" :action="route('attendances.index')" :clear-url="route('attendances.index')">
             <div class="col-md-3">
                 <label for="device_id" class="form-label small mb-1">Dispositivo</label>
                 <select name="device_id" id="device_id" class="form-select">
@@ -50,9 +50,8 @@
             </div>
             <div class="col-md-2">
                 <button class="btn btn-primary w-100"><i class="bi bi-funnel me-1"></i>Filtrar</button>
-                <a href="{{ route('attendances.index') }}" class="btn btn-link small w-100 mt-1">Limpiar filtros</a>
             </div>
-            <div class="col-md-auto ms-auto d-flex gap-2">
+            <div class="col-md-auto ms-auto d-flex gap-2 align-items-end">
                 <a href="{{ route('attendances.export', request()->query()) }}" class="btn btn-outline-success">
                     <i class="bi bi-file-earmark-spreadsheet"></i> Excel/CSV
                 </a>
@@ -60,7 +59,7 @@
                     <i class="bi bi-printer"></i> PDF/Imprimir
                 </a>
             </div>
-        </form>
+        </x-filter-bar>
     </div>
 </div>
 

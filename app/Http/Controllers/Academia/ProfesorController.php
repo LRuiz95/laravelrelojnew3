@@ -61,7 +61,7 @@ class ProfesorController extends Controller
             ->orderBy('paterno')
             ->orderBy('materno')
             ->orderBy('nombre_profesor')
-            ->paginate(25);
+            ->paginate((int) $request->query('per_page', 25));
 
         return view('academia.profesores.index', [
             'ciclo' => $ciclo,

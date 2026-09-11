@@ -26,7 +26,7 @@ class OperationsController extends Controller
             $query->where('operation', $operation);
         }
 
-        $syncs = $query->paginate(20);
+        $syncs = $query->paginate((int) $request->query('per_page', 20));
 
         // FirebirdSync para la cola unificada (Centro de Operaciones)
         $firebirdSyncs = \App\Models\FirebirdSync::latest()->limit(20)->get();

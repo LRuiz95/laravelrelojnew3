@@ -23,7 +23,9 @@ class DeviceController extends Controller
 {
     public function index(): View
     {
-        $devices = Device::withCount(['employees', 'attendances'])->orderBy('name')->paginate(10);
+        $devices = Device::withCount(['employees', 'attendances'])
+            ->orderBy('name')
+            ->paginate((int) request()->query('per_page', 10));
 
         // Serie semanal [d-6 … hoy]. El conteo se hace en PHP sobre los timestamps
         // de la ventana porque DATE_SUB/CURDATE() es exclusivo de MySQL y rompía

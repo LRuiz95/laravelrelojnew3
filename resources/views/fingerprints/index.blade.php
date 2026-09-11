@@ -13,7 +13,7 @@
 
 <div class="card shadow-sm mb-3">
     <div class="card-body">
-        <form class="row g-2 align-items-end" method="GET">
+        <x-filter-bar :action="route('fingerprints.index')" :clear-url="route('fingerprints.index')">
             <div class="col-md-5">
                 <label for="q" class="form-label small mb-1">Empleado o ID</label>
                 <input type="search" id="q" name="q" value="{{ request('q') }}" class="form-control" placeholder="Buscar por nombre o ID">
@@ -27,11 +27,10 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-primary"><i class="bi bi-search me-1"></i> Filtrar</button>
-                <a href="{{ route('fingerprints.index') }}" class="btn btn-ghost">Limpiar</a>
+            <div class="col-md-3 d-flex gap-2 align-items-end">
+                <button class="btn btn-primary w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
             </div>
-        </form>
+        </x-filter-bar>
     </div>
 </div>
 

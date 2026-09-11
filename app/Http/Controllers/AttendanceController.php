@@ -66,7 +66,7 @@ class AttendanceController extends Controller
             ->sortByDesc(fn ($row) => $row->date.' '.($row->employee?->name ?? $row->user_id));
 
         $page = LengthAwarePaginator::resolveCurrentPage('employee_page');
-        $perPage = 25;
+        $perPage = min(max((int) $request->query('per_page', 25), 10), 100);
         $attendances = new LengthAwarePaginator(
             $dailyRows->forPage($page, $perPage)->values(),
             $dailyRows->count(),

@@ -8,86 +8,23 @@
     </a>
 </div>
 
-<div class="card">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Ciclo</th>
-                        <th>Descripción</th>
-                        <th>Fechas</th>
-                        <th>Estadísticas</th>
-                        <th>Estado</th>
-                        <th class="text-end">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php $__currentLoopData = $ciclos; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $ciclo): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                        <tr>
-                            <td class="fw-semibold"><?php echo e($ciclo->label); ?></td>
-                            <td><?php echo e($ciclo->descripcion); ?></td>
-                            <td class="small text-muted">
-                                <?php echo e($ciclo->fechaInicialFormateada); ?> - <?php echo e($ciclo->fechaFinalFormateada); ?>
-
-                            </td>
-                            <td>
-                                <div class="d-flex gap-2 small">
-                                    <span class="badge bg-primary-subtle text-primary"><?php echo e($ciclo->grupos_count); ?> grupos</span>
-                                    <span class="badge bg-success-subtle text-success"><?php echo e($ciclo->alumnos_count ?? 0); ?> alumnos</span>
-                                    <span class="badge bg-warning-subtle text-warning"><?php echo e($ciclo->horarios_count); ?> horarios</span>
-                                    <span class="badge bg-info-subtle text-info"><?php echo e($ciclo->cursos_count); ?> cursos</span>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="badge badge--status <?php echo e($ciclo->activo ? 'badge--active' : 'badge--inactive'); ?>">
-                                    <?php echo e($ciclo->activo ? 'Activo' : 'Inactivo'); ?>
-
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                <div class="btn-group btn-group-sm">
-                                    <a href="<?php echo e(route('academia.ciclos.show', $ciclo)); ?>" class="btn btn-outline-primary" title="Ver">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                    <a href="<?php echo e(route('academia.ciclos.edit', $ciclo)); ?>" class="btn btn-outline-secondary" title="Editar">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <button type="button" class="btn btn-outline-<?php echo e($ciclo->activo ? 'warning' : 'success'); ?>" 
-                                            onclick="toggleCicloActivo('<?php echo e($ciclo->id); ?>', <?php echo e($ciclo->activo ? 'false' : 'true'); ?>)" 
-                                            title="<?php echo e($ciclo->activo ? 'Desactivar' : 'Activar'); ?>">
-                                        <i class="bi bi-<?php echo e($ciclo->activo ? 'pause' : 'play'); ?>"></i>
-                                    </button>
-                                    <form action="<?php echo e(route('academia.ciclos.destroy', $ciclo)); ?>" method="POST" class="d-inline" onsubmit="return confirm('¿Eliminar este ciclo?')">
-                                        <?php echo csrf_field(); ?> <?php echo method_field('DELETE'); ?>
-                                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<?php if($ciclos->isEmpty()): ?>
-    <div class="text-center py-5">
-        <i class="bi bi-calendar-x text-secondary" style="font-size: 3rem;"></i>
-        <h5 class="mt-3 text-secondary">No hay ciclos registrados</h5>
-        <p class="text-muted">Crea tu primer ciclo escolar para comenzar.</p>
-        <a href="<?php echo e(route('academia.ciclos.create')); ?>" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i> Crear primer ciclo
-        </a>
-    </div>
-<?php endif; ?>
-
-
-<?php echo e($ciclos->links()); ?>
-
+<x-data-table
+    :headers="[
+        ['label' => 'Ciclo', 'field' => 'label', 'class' => 'fw-semibold'],
+        ['label' => 'Descripción', 'field' => 'descripcion'],
+        ['label' => 'Fechas', 'render' => fn($ciclo) => '<span class=\"small text-muted\">' . e($ciclo->fechaInicialFormateada) . ' - ' . e($ciclo->fechaFinalFormateada) . '</span>'],
+        ['label' => 'Estadísticas', 'render' => function ($ciclo) { $html = '<div class=\"d-flex gap-2 small\">'; $html .= '<span class=\"badge bg-primary-subtle text-primary\">' . $ciclo->grupos_count . ' grupos</span>'; $html .= '<span class=\"badge bg-success-subtle text-success\">' . ($ciclo->alumnos_count ?? 0) . ' alumnos</span>'; $html .= '<span class=\"badge bg-warning-subtle text-warning\">' . $ciclo->horarios_count . ' horarios</span>'; $html .= '<span class=\"badge bg-info-subtle text-info\">' . $ciclo->cursos_count . ' cursos</span>'; $html .= '</div>'; return $html; }],
+        ['label' => 'Estado', 'render' => fn($ciclo) => '<span class=\"badge badge--status ' . ($ciclo->activo ? 'badge--active' : 'badge--inactive') . '\">' . ($ciclo->activo ? 'Activo' : 'Inactivo') . '</span>'],
+    ]"
+    :rows="$ciclos"
+    :actions="[
+        ['type' => 'link', 'url' => fn($ciclo) => route('academia.ciclos.show', $ciclo), 'style' => 'primary', 'title' => 'Ver', 'icon' => 'bi bi-eye'],
+        ['type' => 'link', 'url' => fn($ciclo) => route('academia.ciclos.edit', $ciclo), 'style' => 'secondary', 'title' => 'Editar', 'icon' => 'bi bi-pencil'],
+        ['type' => 'button', 'style' => fn($ciclo) => $ciclo->activo ? 'warning' : 'success', 'onclick' => fn($ciclo) => "toggleCicloActivo('{$ciclo->id}', " . ($ciclo->activo ? 'false' : 'true') . ")", 'title' => fn($ciclo) => $ciclo->activo ? 'Desactivar' : 'Activar', 'icon' => fn($ciclo) => 'bi bi-' . ($ciclo->activo ? 'pause' : 'play')],
+    ]"
+    :pagination="$ciclos"
+    empty-message="No hay ciclos registrados"
+/>
 
 
 <div class="modal fade" id="modalCrearCiclo" tabindex="-1" aria-hidden="true">

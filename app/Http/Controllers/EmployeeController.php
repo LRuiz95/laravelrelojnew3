@@ -7,10 +7,12 @@ namespace App\Http\Controllers;
 use App\Jobs\DeprovisionEmployeeJob;
 use App\Jobs\SyncEmployeeToDeviceJob;
 use App\Models\Academia\Sede;
+use App\Models\Area;
 use App\Models\Device;
 use App\Models\DeviceSync;
 use App\Models\Employee;
 use App\Models\Fingerprint;
+use App\Models\Puesto;
 use App\Services\SobranteService;
 use App\Services\ZktecoService;
 use App\Http\Requests\EmployeeFormRequest;
@@ -49,7 +51,7 @@ class EmployeeController extends Controller
             $query->bajas();
         }
 
-        $employees = $query->paginate(25)->withQueryString();
+        $employees = $query->paginate((int) $request->query('per_page', 25))->withQueryString();
 
         // Stats para tabs
         $sobrantesStats = $sobranteService->getStats();
@@ -126,7 +128,7 @@ class EmployeeController extends Controller
             $query->bajas();
         }
 
-        $employees = $query->paginate(25);
+        $employees = $query->paginate((int) $request->query('per_page', 25));
 
         $data = $employees->getCollection()->map(function ($employee) {
             return [
@@ -180,6 +182,8 @@ class EmployeeController extends Controller
     {
         return view('employees.create', [
             'devices' => Device::orderBy('name')->get(),
+            'areas' => Area::query()->orderBy('identificador')->get(['id', 'identificador', 'descripcion']),
+            'puestos' => Puesto::query()->with('area')->orderBy('identificador')->get(['id', 'identificador', 'descripcion', 'area_id']),
         ]);
     }
 
@@ -216,7 +220,11 @@ class EmployeeController extends Controller
             ]))
             ->values();
 
-        return view('employees.edit', compact('employee', 'availableFingerprints', 'availableDevices', 'syncDevices', 'totalDevices'));
+        return view('employees.edit', compact('employee', 'availableFingerprints', 'availableDevices', 'syncDevices', 'totalDevices'))
+            ->with([
+                'areas' => Area::query()->orderBy('identificador')->get(['id', 'identificador', 'descripcion']),
+                'puestos' => Puesto::query()->with('area')->orderBy('identificador')->get(['id', 'identificador', 'descripcion', 'area_id']),
+            ]);
     }
 
     public function fingerprints(Request $request): View
@@ -237,7 +245,7 @@ class EmployeeController extends Controller
             })
             ->orderByRaw('LOWER(name)')
             ->orderBy('id')
-            ->paginate(25)
+            ->paginate((int) $request->query('per_page', 25))
             ->withQueryString();
 
         return view('fingerprints.index', [
@@ -255,12 +263,11 @@ class EmployeeController extends Controller
     {
         $data = (new EmployeeFormRequest)->validate();
 
-        // Solo actualizar el catálogo central (nombre)
-        // La sincronización de credenciales (password, role, card_number) a los checadores
-        // se hace de forma asíncrona vía el botón "Sincronizar credenciales" (syncToDevices)
-        if ($employee->name !== $data['name']) {
-            $employee->update(['name' => $data['name']]);
-        }
+        $employee->update([
+            'name' => $data['name'],
+            'area_id' => $data['area_id'] ?? null,
+            'puesto_id' => $data['puesto_id'] ?? null,
+        ]);
 
         $enrollmentsCount = $employee->devices()->count();
         $message = $enrollmentsCount > 0
@@ -352,6 +359,17 @@ class EmployeeController extends Controller
 
         $device = Device::findOrFail($data['device_id']);
         $service = new ZktecoService($device);
+
+        $employee = Employee::query()->firstOrCreate(
+            ['user_id' => $data['user_id']],
+            ['name' => $data['name'], 'area_id' => $data['area_id'] ?? null, 'puesto_id' => $data['puesto_id'] ?? null]
+        );
+
+        $employee->update([
+            'name' => $data['name'],
+            'area_id' => $data['area_id'] ?? null,
+            'puesto_id' => $data['puesto_id'] ?? null,
+        ]);
 
         // setUser() sincroniza al terminar y el nuevo flujo crea el catálogo
         // central + la fila pivote automáticamente.

@@ -55,7 +55,7 @@ class AlumnoController extends Controller
             ->orderBy('paterno')
             ->orderBy('materno')
             ->orderBy('nombre')
-            ->paginate(25);
+            ->paginate((int) $request->query('per_page', 25));
 
         return view('academia.alumnos.index', [
             'ciclo' => $ciclo,

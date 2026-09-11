@@ -101,9 +101,9 @@ class AttendanceFilterTest extends TestCase
     {
         $hoy = today()->toDateString();
 
-        // Con filtros activos se listan registros crudos: Ana tiene 2 hoy
-        // (entrada + salida) y ambos caen en el rango; Beto (ayer) queda fuera.
-        $this->assertSame(['Ana Entrada', 'Ana Entrada'], $this->filteredNames("/attendances?from={$hoy}&to={$hoy}"));
+        // La vista agrupa por empleado + fecha; por eso, con el rango del día
+        // de hoy solo existe una fila para Ana y Beto queda fuera.
+        $this->assertSame(['Ana Entrada'], $this->filteredNames("/attendances?from={$hoy}&to={$hoy}"));
     }
 
     public function test_combined_filters(): void

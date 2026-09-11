@@ -114,6 +114,21 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="{{ route('areas.index') }}" data-tooltip="Áreas" class="nav-link {{ request()->routeIs('areas.*') ? 'active' : '' }}" title="Áreas">
+                    <i class="bi bi-diagram-3"></i><span class="nav-label">Áreas</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('puestos.index') }}" data-tooltip="Puestos" class="nav-link {{ request()->routeIs('puestos.*') ? 'active' : '' }}" title="Puestos">
+                    <i class="bi bi-briefcase"></i><span class="nav-label">Puestos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('incidencias.index') }}" data-tooltip="Incidencias" class="nav-link {{ request()->routeIs('incidencias.*') ? 'active' : '' }}" title="Incidencias">
+                    <i class="bi bi-exclamation-triangle"></i><span class="nav-label">Incidencias</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{{ route('academia.horarios.clase') }}" data-tooltip="Horarios y Asistencia" class="nav-link {{ request()->routeIs('academia.horarios*') ? 'active' : '' }}" title="Horarios y Asistencia">
                     <i class="bi bi-calendar-week"></i><span class="nav-label">Horarios</span>
                 </a>

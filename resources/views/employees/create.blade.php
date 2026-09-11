@@ -56,6 +56,30 @@
                            placeholder="Opcional">
                     @error('card_number') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
+                <div class="col-6 mb-3">
+                    <label for="area_id" class="form-label">Área</label>
+                    <select id="area_id" name="area_id" class="form-select @error('area_id') is-invalid @enderror">
+                        <option value="">Sin área</option>
+                        @foreach ($areas as $area)
+                            <option value="{{ $area->id }}" @selected(old('area_id') == $area->id)>
+                                {{ $area->identificador }} - {{ $area->descripcion }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('area_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+                <div class="col-6 mb-3">
+                    <label for="puesto_id" class="form-label">Puesto</label>
+                    <select id="puesto_id" name="puesto_id" class="form-select @error('puesto_id') is-invalid @enderror">
+                        <option value="">Sin puesto</option>
+                        @foreach ($puestos as $puesto)
+                            <option value="{{ $puesto->id }}" @selected(old('puesto_id') == $puesto->id)>
+                                {{ $puesto->identificador }} - {{ $puesto->descripcion }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('puesto_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
             </div>
 
             <div class="mb-3">

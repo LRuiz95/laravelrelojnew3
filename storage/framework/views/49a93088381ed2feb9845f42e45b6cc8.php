@@ -5,8 +5,16 @@
 
 <div class="card shadow-sm mb-3">
     <div class="card-body">
-        <form id="employeeFilters" class="row g-3 align-items-end" method="GET"
-              action="<?php echo e(route('employees.index')); ?>">
+        <?php if (isset($component)) { $__componentOriginale9f22847d79d6273acb27aff60f1f678 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginale9f22847d79d6273acb27aff60f1f678 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.filter-bar','data' => ['action' => route('employees.index'),'clearUrl' => route('employees.index')]] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? (array) $attributes->getIterator() : [])); ?>
+<?php $component->withName('filter-bar'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag && $constructor = (new ReflectionClass(Illuminate\View\AnonymousComponent::class))->getConstructor()): ?>
+<?php $attributes = $attributes->except(collect($constructor->getParameters())->map->getName()->all()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['action' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute(route('employees.index')),'clear-url' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute(route('employees.index'))]); ?>
             <div class="col-md-4">
                 <label class="form-label small mb-1" for="employeeSearch">Buscar</label>
                 <div class="input-group">
@@ -55,9 +63,6 @@
 
             <div class="col-md-2 d-flex gap-2 align-items-end">
                 <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-search me-1"></i> Filtrar</button>
-                <?php if(request()->hasAny(['q', 'cargo', 'departamento', 'id_campus'])): ?>
-                    <a href="<?php echo e(route('employees.index')); ?>" class="btn btn-ghost" aria-label="Limpiar filtros">Limpiar</a>
-                <?php endif; ?>
             </div>
 
             
@@ -120,7 +125,16 @@
                     <i class="bi bi-exclamation-triangle text-warning"></i> Sobrantes
                 </a>
             </div>
-        </form>
+         <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginale9f22847d79d6273acb27aff60f1f678)): ?>
+<?php $attributes = $__attributesOriginale9f22847d79d6273acb27aff60f1f678; ?>
+<?php unset($__attributesOriginale9f22847d79d6273acb27aff60f1f678); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginale9f22847d79d6273acb27aff60f1f678)): ?>
+<?php $component = $__componentOriginale9f22847d79d6273acb27aff60f1f678; ?>
+<?php unset($__componentOriginale9f22847d79d6273acb27aff60f1f678); ?>
+<?php endif; ?>
     </div>
 </div>
 

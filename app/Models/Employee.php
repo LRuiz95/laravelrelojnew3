@@ -38,6 +38,8 @@ class Employee extends Model
         'id_campus',
         'nivel',
         'tarjeta_id',
+        'area_id',
+        'puesto_id',
     ];
 
     protected $casts = [
@@ -77,6 +79,16 @@ class Employee extends Model
     public function sede(): BelongsTo
     {
         return $this->belongsTo(Sede::class, 'id_campus', 'id_campus');
+    }
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class, 'area_id');
+    }
+
+    public function puesto(): BelongsTo
+    {
+        return $this->belongsTo(Puesto::class, 'puesto_id');
     }
 
     public static function roles(): array

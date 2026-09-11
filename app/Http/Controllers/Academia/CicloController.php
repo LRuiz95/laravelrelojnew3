@@ -30,7 +30,7 @@ class CicloController extends Controller
             ->latest('inicial')
             ->latest('final')
             ->latest('periodo')
-            ->paginate(20);
+            ->paginate((int) $request->query('per_page', 20));
 
         foreach ($ciclos as $ciclo) {
             $ciclo->setAttribute('grupos_count', Grupo::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)->count());

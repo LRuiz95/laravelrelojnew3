@@ -45,7 +45,7 @@ class PlanController extends Controller
         $planes = $query->with('nivelRel')
             ->orderBy('nivel')
             ->orderBy('nombre_plan')
-            ->paginate(25);
+            ->paginate((int) $request->query('per_page', 25));
 
         // Count distinct ciclos where each plan is used (via materias → horarios_det)
         $planIds = $planes->pluck('id_plan');

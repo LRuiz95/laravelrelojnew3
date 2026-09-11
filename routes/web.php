@@ -18,7 +18,10 @@ use App\Http\Controllers\DeviceSyncController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FingerprintController;
 use App\Http\Controllers\FirebirdController;
+use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\OperationsController;
+use App\Http\Controllers\AreaController;
+use App\Http\Controllers\PuestoController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [AuthController::class, 'create'])->middleware('guest')->name('login');
@@ -171,6 +174,11 @@ Route::middleware('admin')->group(function () {
         Route::post('/sobrantes/{deviceId}/{deviceUid}/unignore', [EmployeeController::class, 'sobrantesUnignore'])->middleware('admin')->name('sobrantes.unignore');
         Route::post('/sobrantes/{deviceId}/{deviceUid}/{type}/remove', [EmployeeController::class, 'sobrantesRemove'])->middleware('admin')->name('sobrantes.remove');
     });
+
+    Route::resource('areas', AreaController::class)->parameters(['areas' => 'area']);
+    Route::resource('puestos', PuestoController::class)->parameters(['puestos' => 'puesto']);
+    Route::resource('incidencias', IncidenciaController::class)->only(['index', 'create', 'store']);
+    Route::post('incidencias/{incidencia}/estado', [IncidenciaController::class, 'updateStatus'])->name('incidencias.estado');
 
     Route::get('/fingerprints', [FingerprintController::class, 'index'])->name('fingerprints.index');
 

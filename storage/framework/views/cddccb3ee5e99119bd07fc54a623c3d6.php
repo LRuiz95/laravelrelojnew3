@@ -19,7 +19,16 @@
 
 <div class="card shadow-sm mb-3">
     <div class="card-body">
-        <form id="attendanceFilters" class="filter-row" method="GET">
+        <?php if (isset($component)) { $__componentOriginale9f22847d79d6273acb27aff60f1f678 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginale9f22847d79d6273acb27aff60f1f678 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.filter-bar','data' => ['id' => 'attendanceFilters','action' => route('attendances.index'),'clearUrl' => route('attendances.index')]] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? (array) $attributes->getIterator() : [])); ?>
+<?php $component->withName('filter-bar'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag && $constructor = (new ReflectionClass(Illuminate\View\AnonymousComponent::class))->getConstructor()): ?>
+<?php $attributes = $attributes->except(collect($constructor->getParameters())->map->getName()->all()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['id' => 'attendanceFilters','action' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute(route('attendances.index')),'clear-url' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute(route('attendances.index'))]); ?>
             <div class="col-md-3">
                 <label for="device_id" class="form-label small mb-1">Dispositivo</label>
                 <select name="device_id" id="device_id" class="form-select">
@@ -48,9 +57,8 @@
             </div>
             <div class="col-md-2">
                 <button class="btn btn-primary w-100"><i class="bi bi-funnel me-1"></i>Filtrar</button>
-                <a href="<?php echo e(route('attendances.index')); ?>" class="btn btn-link small w-100 mt-1">Limpiar filtros</a>
             </div>
-            <div class="col-md-auto ms-auto d-flex gap-2">
+            <div class="col-md-auto ms-auto d-flex gap-2 align-items-end">
                 <a href="<?php echo e(route('attendances.export', request()->query())); ?>" class="btn btn-outline-success">
                     <i class="bi bi-file-earmark-spreadsheet"></i> Excel/CSV
                 </a>
@@ -58,7 +66,16 @@
                     <i class="bi bi-printer"></i> PDF/Imprimir
                 </a>
             </div>
-        </form>
+         <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginale9f22847d79d6273acb27aff60f1f678)): ?>
+<?php $attributes = $__attributesOriginale9f22847d79d6273acb27aff60f1f678; ?>
+<?php unset($__attributesOriginale9f22847d79d6273acb27aff60f1f678); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginale9f22847d79d6273acb27aff60f1f678)): ?>
+<?php $component = $__componentOriginale9f22847d79d6273acb27aff60f1f678; ?>
+<?php unset($__componentOriginale9f22847d79d6273acb27aff60f1f678); ?>
+<?php endif; ?>
     </div>
 </div>
 

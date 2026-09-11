@@ -25,7 +25,10 @@ class CicloActualServiceTest extends TestCase
         $this->user = User::factory()->create(['role' => 'admin']);
 
         // Create a cycle for URL param and session tests
-        Ciclo::create(['inicial' => 1, 'final' => 3, 'periodo' => 1, 'descripcion' => 'Ciclo 2024-2025']);
+        Ciclo::query()->firstOrCreate(
+            ['inicial' => 1, 'final' => 3, 'periodo' => 1],
+            ['descripcion' => 'Ciclo 2024-2025']
+        );
     }
 
     public function test_get_current_prioriza_param_url_sobre_sesion(): void
@@ -121,8 +124,7 @@ class CicloActualServiceTest extends TestCase
 
     public function test_current_falls_back_to_latest_cycle_when_no_active_cycles_exist(): void
     {
-        Ciclo::query()->delete();
-        Ciclo::create(['inicial' => 2024, 'final' => 2025, 'periodo' => 1, 'descripcion' => 'Ciclo inactivo', 'activo' => false]);
+        Ciclo::query()->update(['activo' => false]);
 
         $service = new CicloActualService();
         $request = Request::create('/academia/ciclos', 'GET');
@@ -133,6 +135,6 @@ class CicloActualServiceTest extends TestCase
 
         $this->assertNotNull($result);
         $this->assertInstanceOf(Ciclo::class, $result);
-        $this->assertSame('2024-2025-1', $result->label);
+        $this->assertSame('4-6-1', $result->label);
     }
 }

@@ -36,7 +36,7 @@ class CursoController extends Controller
             ->with(['sede', 'nivelRel', 'plan.nivelRel', 'materia', 'profesor', 'materias.materia'])
             ->withCount('materias')
             ->orderBy('clave_curso')
-            ->paginate(25);
+            ->paginate((int) $request->query('per_page', 25));
 
         $cursos->each(function (Curso $curso): void {
             $materia = $curso->materia ?? $curso->materias->first()?->materia;

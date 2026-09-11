@@ -42,7 +42,7 @@ class GrupoController extends Controller
             ->orderBy('grado')
             ->orderBy('turno')
             ->orderBy('codigo_grupo')
-            ->paginate(25);
+            ->paginate((int) $request->query('per_page', 25));
 
         return view('academia.grupos.index', [
             'ciclo' => $ciclo,

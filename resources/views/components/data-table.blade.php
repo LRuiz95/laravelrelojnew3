@@ -1,11 +1,12 @@
-@props(['headers', 'rows', 'actions', 'emptyMessage' => 'No hay datos', 'striped' => true, 'hover' => true, 'bordered' => true, 'pagination' => null])
+@props(['headers', 'rows', 'actions', 'emptyMessage' => 'No hay datos', 'striped' => true, 'hover' => true, 'bordered' => true, 'pagination' => null, 'perPageOptions' => [10, 25, 50, 100]])
 
 @php
     $hasHiddenHeaders = collect($headers)->contains(fn ($header) => isset($header['hideOn']));
     $extraColumnCount = ($actions || $hasHiddenHeaders) ? 1 : 0;
+    $currentPerPage = method_exists($rows, 'perPage') ? (int) $rows->perPage() : 25;
 @endphp
 
-<div class="card">
+<div class="card data-table-shell">
     <div class="card-body p-0">
         @if ($rows->isEmpty())
             <div class="card-body text-center text-muted py-5">
@@ -142,7 +143,32 @@
     </div>
 
     @if ($pagination)
-        <div class="card-footer border-0 bg-transparent pt-0">
+        <div class="data-table-footer">
+            <div class="data-table-summary">
+                @php
+                    $fromItem = $rows->total() > 0 ? $rows->firstItem() : 0;
+                    $toItem = $rows->total() > 0 ? $rows->lastItem() : 0;
+                @endphp
+                Mostrando {{ $fromItem }}–{{ $toItem }} de {{ $rows->total() }} registros
+            </div>
+
+            <div class="data-table-controls">
+                <span class="small text-tertiary-token">Filas</span>
+                <div class="data-table-per-page">
+                    @foreach ($perPageOptions as $option)
+                        @php
+                            $query = request()->query();
+                            unset($query['page']);
+                            $query['per_page'] = $option;
+                            $url = request()->url() . '?' . http_build_query($query);
+                        @endphp
+                        <a href="{{ $url }}" class="data-table-per-page-link {{ $currentPerPage == $option ? 'active' : '' }}">{{ $option }}</a>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
+        <div class="card-footer border-0 bg-transparent pt-0 pagination-footer">
             {{ $pagination->links() }}
         </div>
     @endif

@@ -24,8 +24,14 @@ class CicloControllerTest extends TestCase
         $this->user = User::factory()->create(['role' => 'admin']);
 
         // Create some cycles for the "has cycles" test
-        Ciclo::create(['inicial' => 1, 'final' => 3, 'periodo' => 1, 'descripcion' => 'Ciclo 2024-2025']);
-        Ciclo::create(['inicial' => 4, 'final' => 6, 'periodo' => 1, 'descripcion' => 'Ciclo 2025-2026']);
+        Ciclo::query()->firstOrCreate(
+            ['inicial' => 1, 'final' => 3, 'periodo' => 1],
+            ['descripcion' => 'Ciclo 2024-2025']
+        );
+        Ciclo::query()->firstOrCreate(
+            ['inicial' => 4, 'final' => 6, 'periodo' => 1],
+            ['descripcion' => 'Ciclo 2025-2026']
+        );
     }
 
     public function test_academia_ciclos_returns_200_when_there_are_ciclos(): void

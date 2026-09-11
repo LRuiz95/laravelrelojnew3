@@ -1,202 +1,134 @@
-# Plan: Jerarquía de Datos y Catálogos del Módulo Academia
+# Plan de Acción - Problemas Reportados
 
-## 1. Análisis del Estado Actual
+## Resumen del Problema
 
-### 1.1 Tablas con Triada de Ciclo (INICIAL, FINAL, PERIODO) — **DEPENDEN DE CICLO**
-
-| Tabla | PK Lógica | Descripción |
-|-------|-----------|-------------|
-| `ciclos` | (inicial, final, periodo) | Catálogo raíz de ciclos escolares |
-| `grupos` | (codigo_grupo, inicial, final, periodo) | Grupos pertenecen a un ciclo |
-| `alumnos_grupos` | (numero_alumno, codigo_grupo, inicial, final, periodo) | Inscripciones alumno-grupo en ciclo |
-| `horarios_det` | (inicial, final, periodo, codigo_grupo, clave_profesor, clave_asignatura, dia, sesion) | Clases programadas en ciclo |
-| `cursos` | (inicial, final, periodo, clave_curso) | Cursos ofertados en ciclo |
-| `alumnos_kardex` | (numero_alumno, inicial, final, periodo, clave_asignatura, id_eval) | Calificaciones en ciclo |
-| `alumnos_niveles` | (numero_alumno, inicial, final, periodo) | Nivel/turno del alumno por ciclo |
-
-### 1.2 Catálogos Globales — **NO FILTRAN POR CICLO**
-
-| Tabla | PK | Descripción |
-|-------|-----|-------------|
-| `materias` | (clave_asignatura, id_plan) | Catálogo por plan de estudios |
-| `planes` | id_plan | Planes de estudio |
-| `niveles` | nivel | Niveles educativos (MS, SU, etc.) |
-| `turnos` | turno | Turnos (MA, VE, etc.) |
-| `sedes` | id_campus | Sedes/Campus |
-| `profesores` | clave_profesor | **Catálogo global** (filtrable vía `horarios_det`) |
-| `sesiones_base` | (nivel, turno, sesion) | Sesiones base por nivel/turno |
-| `metodos_eval` | id_eval | Métodos de evaluación |
-| `contratos` | contrato | Tipos de contrato |
-
-### 1.3 Problemas Identificados
-
-1. **AlumnoController::index()** — No filtra por ciclo; muestra TODOS los alumnos globalmente. El scope `porCiclo` existe en el modelo pero no se usa en el index.
-2. **ProfesorController::index()** — Muestra todos los profesores globales; no hay filtro por ciclo (aunque sí en `show`).
-3. **PlanController / Materias** — Completamente desacoplados del contexto de ciclo; no hay selector de ciclo en sus vistas.
-4. **Vistas inconsistentes** — Dashboard tiene selector prominente; Grupos/Alumnos tienen solo enlace "Cambiar ciclo"; Planes no tienen ninguno.
-5. **Sync Firebird** — `CycleDirectSync` ya respeta la jerarquía (fase 1: tablas de ciclo, fase 2: alumnos), pero `CatalogSmartSync` sincroniza catálogos globales sin contexto de ciclo.
-6. **API endpoints** — Algunos requieren `ciclo` param, otros no; inconsistencia.
-7. **Rutas** — No todas propagan `ciclo_principal` como query param consistente.
+Tres problemas identificados:
+1. **academia/ciclos**: Página vacía en `/academia/ciclos` - no muestra contenido
+2. **Ciclo de trabajo no sincronizado**: En algunas vistas no se respeta el ciclo seleccionado en el header
+3. **employees**: Mejorar diseño de `/employees`
 
 ---
 
-## 2. Diseño de la Jerarquía Correcta
+## Hallazgos Técnicos Detallados
 
+### Problema 1: `/academia/ciclos` página vacía
+
+**Causa Raíz**: 
+- `CicloController::index()` llama a `$this->cicloService->resolve($request)` que lanza `NoCiclosConfiguradosException` si no hay ciclos activos
+- La vista `academia.ciclos.index` no maneja el caso vacío - muestra tabla vacía sin mensaje
+- Existe `empty-ciclos.blade.php` pero **nunca se usa** en ningún controlador
+
+**Flujo actual**:
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        CICLO (Contexto Seleccionado)                        │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ GRUPOS (WHERE inicial,final,periodo)                                │   │
-│  │   ├── ALUMNOS (via alumnos_grupos WHERE inicial,final,periodo)      │   │
-│  │   │   └── KARDEX (WHERE inicial,final,periodo)                      │   │
-│  │   ├── HORARIOS (WHERE inicial,final,periodo)                        │   │
-│  │   │   └── ASISTENCIAS                                               │   │
-│  │   └── CURSOS (WHERE inicial,final,periodo)                          │   │
-│  │       └── CURSOS_DET                                                │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-CATÁLOGOS GLOBALES (Accesibles SIN filtro de ciclo, pero CON referencia a ciclos):
-├── materias (por plan)          → Se usan en: horarios_det, cursos_det, kardex
-├── planes                       → Se usan en: materias, alumnos.plan
-├── niveles, turnos, sedes       → Se usan en: grupos, horarios_det, cursos, alumnos
-├── ciclos (catálogo)            → Selector de contexto principal
-├── profesores (catálogo global) → FILTRABLE vía horarios_det.inicial,final,periodo
-└── sesiones_base, metodos_eval, contratos → Apoyo transversal
+CicloController::index() 
+  → CicloActualService::resolve() 
+    → Si no hay ciclos activos: throw NoCiclosConfiguradosException (500 error)
+    → Si hay ciclos: retorna $ciclo actual + $ciclos paginados
+  → Vista academia.ciclos.index (tabla vacía si $ciclos está vacío)
 ```
 
-### 2.1 Reglas de Navegación y Filtrado
-
-| Vista/Controlador | Comportamiento Requerido |
-|-------------------|-------------------------|
-| **Dashboard** | Selector de ciclo prominente ✓ (ya implementado) |
-| **Grupos** | Filtrados por ciclo seleccionado ✓ (ya implementado) |
-| **Alumnos** | **DEBE** filtrar por ciclo (via `alumnos_grupos`) — mostrar solo inscritos en ese ciclo |
-| **Horarios** | Filtrados por ciclo ✓ (ya implementado) |
-| **Cursos** | Filtrados por ciclo ✓ (ya implementado) |
-| **Kardex** | Filtrado por ciclo ✓ (ya implementado) |
-| **Profesores** | **DEBE** tener toggle: "Todos (catálogo)" vs "Con horarios en ciclo actual" |
-| **Planes/Materias** | **Catálogo global** — sin filtro de ciclo, pero con badge "Usado en X ciclos" |
-| **Niveles/Turnos/Sedes** | Catálogos globales — sin filtro de ciclo |
-
-### 2.2 Selector de Ciclo Unificado
-
-- **Componente Blade reutilizable**: `components/academia/ciclo-selector.blade.php`
-- **Propagación automática**: Todas las rutas academia deben aceptar `?ciclo_principal=`
-- **Persistencia**: Sesión + URL (como ya hace `CicloActualService`)
-- **Ubicación**: Header fijo en layout academia o card header en cada vista
+**Archivos involucrados**:
+- `app/Http/Controllers/Academia/CicloController.php` (línea 26-43)
+- `app/Services/CicloActualService.php` (línea 58-72 - `getDefaultCiclo()`)
+- `resources/views/academia/ciclos/index.blade.php`
+- `resources/views/academia/empty-ciclos.blade.php` (no usado)
 
 ---
 
-## 3. Plan de Implementación
+### Problema 2: Ciclo de trabajo no se sincroniza en algunas vistas
 
-### Fase 1: Modelos — Scopes y Relaciones (Base)
+**Causa Raíz**: 
+El sistema tiene **dos mecanismos** para obtener el ciclo actual que no son idénticos:
 
-| Archivo | Cambio | Prioridad |
-|---------|--------|-----------|
-| `app/Models/Academia/Alumno.php` | Agregar `scopeInscritosEnCiclo()` que usa `alumnos_grupos` + eager load grupo | ALTA |
-| `app/Models/Academia/Profesor.php` | Agregar `scopeConHorariosEnCiclo($I,$F,$P)` y `scopeTodos()` | ALTA |
-| `app/Models/Academia/Grupo.php` | Verificar `alumnos()` y `horarios()` ya filtran por ciclo ✓ | MEDIA |
-| `app/Models/Academia/HorarioDet.php` | Verificar `scopePorCiclo` ✓ | MEDIA |
-| `app/Models/Academia/Curso.php` | Verificar `scopePorCiclo` ✓ | MEDIA |
-| `app/Models/Academia/AlumnoKardex.php` | Verificar `scopePorCiclo` ✓ | MEDIA |
+1. **Header (layout)**: `CicloActualService::current($request)` - prioridad: URL param → sesión → default activo
+2. **Controladores Academia**: `CicloActualService::resolve($request)` - prioridad: URL param → sesión → default activo **(guarda en sesión si viene por URL)**
 
-### Fase 2: Controllers — Filtrado Consistente por Ciclo
+**Diferencia crítica**: `resolve()` **guarda en sesión** cuando el ciclo viene por URL (`ciclo_principal`), mientras que `current()` **no lo hace**. Esto causa que:
+- Usuario selecciona ciclo en header → AJAX a `/academia/set-ciclo` → guarda en sesión
+- Usuario navega a otra vista Academia → controlador usa `resolve()` → lee de sesión ✓
+- Usuario recarga página → `resolve()` lee sesión ✓
+- **PERO**: Si el usuario va directo a URL con `?ciclo_principal=X` → `resolve()` guarda en sesión, pero `current()` en header no lo refleja hasta recargar
 
-| Archivo | Cambio | Prioridad |
-|---------|--------|-----------|
-| `app/Http/Controllers/Academia/AlumnoController.php` | `index()`: usar `Alumno::inscritosEnCiclo($ciclo)` en lugar de query global; agregar `$ciclo` a vista | ALTA |
-| `app/Http/Controllers/Academia/ProfesorController.php` | `index()`: agregar filtro "Con horarios en ciclo" (checkbox); por defecto mostrar solo los del ciclo | ALTA |
-| `app/Http/Controllers/Academia/PlanController.php` | `index()`: agregar badge "Usado en X ciclos" (count distinct ciclos via `horarios_det` + `cursos_det`); NO filtrar por ciclo | MEDIA |
-| `app/Http/Controllers/Academia/CursoController.php` | Verificar que `create/edit` reciben `$ciclo` del service ✓ | MEDIA |
-| `app/Http/Controllers/Academia/KardexController.php` | Verificar filtro por ciclo ✓ | MEDIA |
-| `app/Http/Controllers/Academia/ApiController.php` | Estandarizar: todos los endpoints que devuelven datos de ciclo requieren `ciclo` param | MEDIA |
+**Vistas afectadas**: 
+- Todas las vistas Academia usan `resolve()` correctamente
+- El **header** usa `current()` - inconsistencia menor
+- **Módulo Employees** no usa ciclo académico (dominio distinto) - no es bug, es diseño
 
-### Fase 3: Vistas — Selector de Ciclo Unificado y UI Jerárquica
-
-| Archivo | Cambio | Prioridad |
-|---------|--------|-----------|
-| `resources/views/components/academia/ciclo-selector.blade.php` | **NUEVO** componente reutilizable con selector + badge ciclo actual | ALTA |
-| `resources/views/layouts/academia.blade.php` | **NUEVO** layout base para academia con selector en header | ALTA |
-| `resources/views/academia/alumnos/index.blade.php` | Usar componente selector; mostrar solo alumnos del ciclo; agregar columna "Grupo" | ALTA |
-| `resources/views/academia/profesores/index.blade.php` | Usar componente selector; agregar toggle "Solo con horarios en ciclo" | ALTA |
-| `resources/views/academia/planes/index.blade.php` | Usar componente selector (solo visual); agregar columna "Ciclos donde se usa" | MEDIA |
-| `resources/views/academia/grupos/index.blade.php` | Usar componente selector (reemplazar botón "Cambiar ciclo") | MEDIA |
-| `resources/views/academia/cursos/index.blade.php` | Usar componente selector | MEDIA |
-| `resources/views/academia/horarios/clase.blade.php` | Usar componente selector | MEDIA |
-| `resources/views/academia/kardex/index.blade.php` | Usar componente selector | MEDIA |
-| `resources/views/academia/dashboard/index.blade.php` | Ya tiene selector prominente ✓ | BAJA |
-
-### Fase 4: Rutas — Propagación Consistente de `ciclo_principal`
-
-| Archivo | Cambio | Prioridad |
-|---------|--------|-----------|
-| `routes/web.php` | Verificar que todas las rutas `academia.*` acepten query param `ciclo_principal` (ya funciona via `CicloActualService`) | MEDIA |
-| `routes/web.php` | Agrupar rutas academia bajo middleware que inyecte ciclo por defecto | BAJA |
-
-### Fase 5: Sync Firebird — Validación de Jerarquía
-
-| Archivo | Cambio | Prioridad |
-|---------|--------|-----------|
-| `app/Services/SyncStrategies/CycleDirectSync.php` | Verificar orden: CICLOS → GRUPOS → (CURSOS, ALUMNOS_GRUPOS, HORARIOS_DET) → CURSOS_DET ✓ | MEDIA |
-| `app/Services/SyncStrategies/CatalogSmartSync.php` | Verificar que catálogos globales NO filtran por ciclo ✓ | MEDIA |
-| `app/Http/Controllers/FirebirdController.php` | UI: separar visualmente "Catálogos globales" vs "Datos por ciclo" en grupos ✓ (ya en `getCatalogGroups()`) | BAJA |
-
-### Fase 6: Testing y Validación
-
-| Test | Descripción | Nivel |
-|------|-------------|-------|
-| `AlumnoController@index` | Verifica que solo retorna alumnos inscritos en el ciclo seleccionado | 3 (integración DB) |
-| `ProfesorController@index` | Verifica toggle "con horarios en ciclo" vs "todos" | 3 |
-| `PlanController@index` | Verifica que NO filtra por ciclo pero muestra conteo de ciclos | 2 |
-| `CicloSelector` | Verifica que cambia ciclo y persiste en sesión + URL | 2 |
-| `SyncCycle` | Verifica que sync de ciclo respeta orden FK y filtra por ciclo | 4 (crítico) |
+**Archivos involucrados**:
+- `app/Services/CicloActualService.php` (línea 22-43 `resolve()` vs 82-102 `current()`)
+- `resources/views/layouts/admin.blade.php` (línea 220-266 header dropdown + línea 342-368 JS `setCiclo()`)
+- Todos los controladores Academia (usan `resolve()` consistentemente)
 
 ---
 
-## 4. Orden de Implementación
+### Problema 3: Diseño `/employees` - variables faltantes y UX
 
-```
-1. Crear componente CicloSelector + Layout academia
-2. Actualizar AlumnoController + vista (filtrado por ciclo)
-3. Actualizar ProfesorController + vista (toggle ciclo)
-4. Actualizar PlanController + vista (badges ciclos)
-5. Actualizar vistas restantes (Grupos, Cursos, Horarios, Kardex) para usar selector unificado
-6. Verificar/actualizar ApiController consistencia
-7. Tests de integración (Nivel 3)
-8. Validación manual E2E
-```
+**Hallazgos**:
+1. **Variables no pasadas**: `EmployeeController::index()` no pasa `$cargos`, `$departamentos`, `$sedes` que la vista `employees.index` espera (líneas 19-53)
+2. **JavaScript inline masivo**: 273 líneas de JS en la vista (líneas 374-650) - difícil de mantener
+3. **Filtros rotos**: Los selects de cargo/departamento/sede siempre están vacíos
+4. **Duplicación lógica**: La vista renderiza tabla en Blade Y tiene JS que re-renderiza via AJAX (`fetchEmployees`)
+5. **Inconsistencia visual**: Usa clases custom (`cat-blue`, `badge-with-dot`, `ref-chip`) no documentadas
 
----
-
-## 5. Riesgos y Mitigaciones
-
-| Riesgo | Impacto | Probabilidad | Mitigación |
-|--------|---------|--------------|------------|
-| **Romper vistas existentes** que esperan alumnos globales | ALTO | MEDIA | Feature flag temporal; mantener scope `Activo()` global como fallback |
-| **Performance** en `Alumno::inscritosEnCiclo()` con join complejo | MEDIO | BAJA | Índice compuesto en `alumnos_grupos (inicial,final,periodo,estatus)` ya existe |
-| **Profesores sin horarios** desaparecen de lista por defecto | MEDIO | ALTA | Default: "Con horarios en ciclo"; checkbox "Mostrar todos" siempre visible |
-| **Planes/Materias** confunden a usuarios al no filtrar por ciclo | BAJO | MEDIA | UI clara: badge "Catálogo global" + tooltip explicativo |
-| **Sync Firebird** orden incorrecto causa FK errors | CRÍTICO | BAJA | `CycleDirectSync` ya valida orden; agregar test de integración |
+**Archivos involucrados**:
+- `app/Http/Controllers/EmployeeController.php` (línea 24-62 `index()`)
+- `resources/views/employees/index.blade.php` (36494 bytes - muy grande)
 
 ---
 
-## 6. Decisiones Pendientes (Requieren Confirmación)
+## Plan de Cambios por Archivo
 
-1. **Alumno index**: ¿Mostrar **solo** inscritos en ciclo, o agregar pestaña "Todos los alumnos"?
-   - *Recomendación*: Default = inscritos en ciclo; pestaña "Catálogo completo" opcional.
+### Grupo A: Fix `/academia/ciclos` vacío
 
-2. **Profesor index**: ¿Default "con horarios en ciclo" o "todos"?
-   - *Recomendación*: Default "con horarios en ciclo" (más útil para gestión académica).
+| Archivo | Cambio | Tipo |
+|---------|--------|------|
+| `app/Http/Controllers/Academia/CicloController.php` | En `index()`: catch `NoCiclosConfiguradosException` y redirigir a `empty-ciclos` o crear vista vacía manejada | Fix |
+| `resources/views/academia/ciclos/index.blade.php` | Agregar `@if($ciclos->isEmpty())` mostrar estado vacío con CTA a crear ciclo | Fix |
+| `resources/views/academia/empty-ciclos.blade.php` | Mantener como fallback (ya existe, bien diseñada) | - |
 
-3. **Selector de ciclo**: ¿En layout global (header fijo) o por vista (card header)?
-   - *Recomendación*: Layout global para academia (persistente al navegar entre módulos).
+### Grupo B: Sincronización ciclo de trabajo
 
-4. **Kardex histórico**: ¿El controlador `KardexController::historial()` debe mostrar TODOS los ciclos o solo el seleccionado?
-   - *Recomendación*: `historial()` = todos los ciclos (trasciende ciclo); `show()` = ciclo actual.
+| Archivo | Cambio | Tipo |
+|---------|--------|------|
+| `app/Services/CicloActualService.php` | Unificar lógica: hacer que `current()` use la misma lógica que `resolve()` (incluyendo guardar en sesión si URL param) O documentar diferencia intencional | Refactor |
+| `resources/views/layouts/admin.blade.php` | En header: usar `resolve()` en lugar de `current()` para consistencia, o asegurar que `current()` se comporte igual | Fix |
+
+### Grupo C: Mejora `/employees`
+
+| Archivo | Cambio | Tipo |
+|---------|--------|------|
+| `app/Http/Controllers/EmployeeController.php` | En `index()`: agregar query distinct para `$cargos`, `$departamentos`, `$sedes` y pasarlos a la vista | Feature |
+| `resources/views/employees/index.blade.php` | Extraer JS a archivo separado `resources/js/employees-index.js`, cargar via Vite | Refactor |
+| `resources/views/employees/index.blade.php` | Simplificar: quitar duplicación Blade+JS, usar solo SSR + enhancement progresivo | Refactor |
+| `resources/views/employees/index.blade.php` | Mejorar UX: agrupar columnas, mejorar responsive, chips de filtro más claros | UX |
 
 ---
 
-## 7. Task Boundary para Implementación
+## Nivel de Testing Recomendado
 
-Ver `.opencode/state/current-task.md` (generado junto a este plan).
+**Nivel 3** (`.opencode/policies/test-levels.md`)
+
+**Justificación**:
+- Cambios en controladores que afectan flujo de datos (ciclo actual)
+- Cambios en servicio compartido (`CicloActualService`) usado por 10+ controladores
+- Modificación de vista crítica (`employees.index`) con lógica JS compleja
+- Requiere: tests de integración para controladores Academia, test de servicio `CicloActualService`, test de renderizado `employees.index`
+
+---
+
+## Riesgos Identificados
+
+| Riesgo | Probabilidad | Impacto | Mitigación |
+|--------|-------------|---------|------------|
+| `CicloActualService` cambio rompe controladores Academia | Media | Alto | Test suite existente `AcademiaHierarchyTest` + tests manuales en 3+ vistas |
+| Variables `$cargos`/`$departamentos`/`$sedes` consultas lentas | Baja | Medio | Usar `distinct()` + índices, limitar resultados |
+| JS extraído rompe funcionalidad AJAX empleados | Media | Alto | Test manual exhaustivo: búsqueda, paginación, filtros, acciones |
+| Excepción `NoCiclosConfiguradosException` no catch en otros controladores | Baja | Medio | Verificar que todos usan `resolve()` que ya la maneja internamente |
+
+---
+
+## Decisiones de Arquitectura (registrar en decisions.md)
+
+1. **CicloActualService**: Unificar `resolve()` y `current()` en un solo método público `getCurrent()` con comportamiento consistente (URL → sesión → default, guardando en sesión si URL param)
+2. **Employees index**: Migrar a patrón SSR + progressive enhancement (como `academia.dashboard`), eliminar duplicación Blade/JS
+3. **Empty states**: Usar patrón consistente `empty-ciclos.blade.php` para todos los índices Academia vacíos

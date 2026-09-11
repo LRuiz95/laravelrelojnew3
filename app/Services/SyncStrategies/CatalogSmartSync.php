@@ -384,7 +384,6 @@ class CatalogSmartSync implements SyncStrategyInterface
 
         return compact('log', 'errors', 'created', 'updated', 'deleted', 'processed');
     }
-
     /**
      * Tabla pequeña: carga todo en memoria, compara, INSERT/UPDATE en transacción.
      */
@@ -413,6 +412,9 @@ class CatalogSmartSync implements SyncStrategyInterface
                 $m = [];
                 foreach ($validColumns as $myCol => $fbCol) {
                     $m[$myCol] = $row[$fbCol] ?? null;
+                    if (in_array($myCol, ['receso', 'activo'], true) && is_string($m[$myCol])) {
+                        $m[$myCol] = in_array(strtoupper(trim($m[$myCol])), ['S', 'SI', 'Y', 'YES', '1', 'TRUE'], true);
+                    }
                 }
                 $mappedData[] = $m;
             }
@@ -563,6 +565,9 @@ protected function syncCatalogTableChunked(
                     $m = [];
                     foreach ($validColumns as $myCol => $fbCol) {
                         $m[$myCol] = $row[$fbCol] ?? null;
+                        if (in_array($myCol, ['receso', 'activo'], true) && is_string($m[$myCol])) {
+                            $m[$myCol] = in_array(strtoupper(trim($m[$myCol])), ['S', 'SI', 'Y', 'YES', '1', 'TRUE'], true);
+                        }
                     }
                     $mappedChunk[] = $m;
                 }

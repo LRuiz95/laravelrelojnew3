@@ -53,7 +53,13 @@ class CursoController extends Controller
                 ->distinct()
                 ->orderBy('nombre_completo')
                 ->get() : collect());
-            $curso->setAttribute('alumnos_count', $materia ? DB::table('alumnos_grupos as ag')
+            $curso->setAttribute('alumnos_count', DB::table('alumnos_cursos')
+                ->where('inicial', $curso->inicial)
+                ->where('final', $curso->final)
+                ->where('periodo', $curso->periodo)
+                ->where('codigo_curso', $curso->clave_curso)
+                ->distinct('numero_alumno')
+                ->count('numero_alumno') ?: ($materia ? DB::table('alumnos_grupos as ag')
                 ->join('horarios_det as h', function ($join) use ($curso, $materia) {
                     $join->on('h.codigo_grupo', '=', 'ag.codigo_grupo')
                         ->on('h.inicial', '=', 'ag.inicial')
@@ -73,7 +79,7 @@ class CursoController extends Controller
                 ->where('ag.estatus', 'INSCRITO')
                 ->when($curso->codigo_grupo, fn ($query) => $query->where('ag.codigo_grupo', $curso->codigo_grupo))
                 ->distinct('ag.numero_alumno')
-                ->count('ag.numero_alumno') : 0);
+                ->count('ag.numero_alumno') : 0));
         });
 
         return view('academia.cursos.index', [
@@ -112,7 +118,24 @@ class CursoController extends Controller
             ->get() : collect());
         $alumnoRows = collect();
 
-        if ($materia) {
+        $alumnoRows = DB::table('alumnos_cursos as ac')
+            ->leftJoin('alumnos_grupos as ag', function ($join) use ($curso) {
+                $join->on('ag.numero_alumno', '=', 'ac.numero_alumno')
+                    ->where('ag.inicial', $curso->inicial)
+                    ->where('ag.final', $curso->final)
+                    ->where('ag.periodo', $curso->periodo)
+                    ->where('ag.estatus', 'INSCRITO');
+            })
+            ->where('ac.inicial', $curso->inicial)
+            ->where('ac.final', $curso->final)
+            ->where('ac.periodo', $curso->periodo)
+            ->where('ac.codigo_curso', $curso->clave_curso)
+            ->select('ac.numero_alumno')
+            ->selectRaw('MIN(ag.codigo_grupo) as codigo_grupo')
+            ->groupBy('ac.numero_alumno')
+            ->get();
+
+        if ($alumnoRows->isEmpty() && $materia) {
             $alumnoRows = DB::table('alumnos as a')
                 ->join('alumnos_grupos as ag', 'ag.numero_alumno', '=', 'a.numero_alumno')
                 ->join('horarios_det as h', function ($join) use ($curso, $materia) {

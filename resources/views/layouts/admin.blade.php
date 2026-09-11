@@ -119,11 +119,6 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{{ route('academia.kardex.index') }}" data-tooltip="Kardex" class="nav-link {{ request()->routeIs('academia.kardex*') ? 'active' : '' }}" title="Kardex">
-                    <i class="bi bi-file-earmark-text"></i><span class="nav-label">Kardex</span>
-                </a>
-            </li>
-            <li class="nav-item">
                 <a href="{{ route('academia.cursos.index') }}" data-tooltip="Cursos" class="nav-link {{ request()->routeIs('academia.cursos*') ? 'active' : '' }}" title="Cursos">
                     <i class="bi bi-book"></i><span class="nav-label">Cursos</span>
                 </a>

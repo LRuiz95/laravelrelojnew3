@@ -1,11 +1,9 @@
-@extends('layouts.admin')
+<?php $__env->startSection('title', 'Ciclos Escolares'); ?>
 
-@section('title', 'Ciclos Escolares')
-
-@section('content')
+<?php $__env->startSection('content'); ?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 mb-0">Ciclos Escolares</h1>
-    <a href="{{ route('academia.ciclos.create') }}" class="btn btn-primary">
+    <a href="<?php echo e(route('academia.ciclos.create')); ?>" class="btn btn-primary">
         <i class="bi bi-plus-lg me-1"></i> Nuevo Ciclo
     </a>
 </div>
@@ -25,41 +23,43 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($ciclos as $ciclo)
+                    <?php $__currentLoopData = $ciclos; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $ciclo): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                         <tr>
-                            <td class="fw-semibold">{{ $ciclo->label }}</td>
-                            <td>{{ $ciclo->descripcion }}</td>
+                            <td class="fw-semibold"><?php echo e($ciclo->label); ?></td>
+                            <td><?php echo e($ciclo->descripcion); ?></td>
                             <td class="small text-muted">
-                                {{ $ciclo->fechaInicialFormateada }} - {{ $ciclo->fechaFinalFormateada }}
+                                <?php echo e($ciclo->fechaInicialFormateada); ?> - <?php echo e($ciclo->fechaFinalFormateada); ?>
+
                             </td>
                             <td>
                                 <div class="d-flex gap-2 small">
-                                    <span class="badge bg-primary-subtle text-primary">{{ $ciclo->grupos_count }} grupos</span>
-                                    <span class="badge bg-success-subtle text-success">{{ $ciclo->alumnos_count ?? 0 }} alumnos</span>
-                                    <span class="badge bg-warning-subtle text-warning">{{ $ciclo->horarios_count }} horarios</span>
-                                    <span class="badge bg-info-subtle text-info">{{ $ciclo->cursos_count }} cursos</span>
+                                    <span class="badge bg-primary-subtle text-primary"><?php echo e($ciclo->grupos_count); ?> grupos</span>
+                                    <span class="badge bg-success-subtle text-success"><?php echo e($ciclo->alumnos_count ?? 0); ?> alumnos</span>
+                                    <span class="badge bg-warning-subtle text-warning"><?php echo e($ciclo->horarios_count); ?> horarios</span>
+                                    <span class="badge bg-info-subtle text-info"><?php echo e($ciclo->cursos_count); ?> cursos</span>
                                 </div>
                             </td>
                             <td>
-                                <span class="badge badge--status {{ $ciclo->activo ? 'badge--active' : 'badge--inactive' }}">
-                                    {{ $ciclo->activo ? 'Activo' : 'Inactivo' }}
+                                <span class="badge badge--status <?php echo e($ciclo->activo ? 'badge--active' : 'badge--inactive'); ?>">
+                                    <?php echo e($ciclo->activo ? 'Activo' : 'Inactivo'); ?>
+
                                 </span>
                             </td>
                             <td class="text-end">
                                 <div class="btn-group btn-group-sm">
-                                    <a href="{{ route('academia.ciclos.show', $ciclo) }}" class="btn btn-outline-primary" title="Ver">
+                                    <a href="<?php echo e(route('academia.ciclos.show', $ciclo)); ?>" class="btn btn-outline-primary" title="Ver">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <a href="{{ route('academia.ciclos.edit', $ciclo) }}" class="btn btn-outline-secondary" title="Editar">
+                                    <a href="<?php echo e(route('academia.ciclos.edit', $ciclo)); ?>" class="btn btn-outline-secondary" title="Editar">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <button type="button" class="btn btn-outline-{{ $ciclo->activo ? 'warning' : 'success' }}" 
-                                            onclick="toggleCicloActivo('{{ $ciclo->id }}', {{ $ciclo->activo ? 'false' : 'true' }})" 
-                                            title="{{ $ciclo->activo ? 'Desactivar' : 'Activar' }}">
-                                        <i class="bi bi-{{ $ciclo->activo ? 'pause' : 'play' }}"></i>
+                                    <button type="button" class="btn btn-outline-<?php echo e($ciclo->activo ? 'warning' : 'success'); ?>" 
+                                            onclick="toggleCicloActivo('<?php echo e($ciclo->id); ?>', <?php echo e($ciclo->activo ? 'false' : 'true'); ?>)" 
+                                            title="<?php echo e($ciclo->activo ? 'Desactivar' : 'Activar'); ?>">
+                                        <i class="bi bi-<?php echo e($ciclo->activo ? 'pause' : 'play'); ?>"></i>
                                     </button>
-                                    <form action="{{ route('academia.ciclos.destroy', $ciclo) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Eliminar este ciclo?')">
-                                        @csrf @method('DELETE')
+                                    <form action="<?php echo e(route('academia.ciclos.destroy', $ciclo)); ?>" method="POST" class="d-inline" onsubmit="return confirm('¿Eliminar este ciclo?')">
+                                        <?php echo csrf_field(); ?> <?php echo method_field('DELETE'); ?>
                                         <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
                                             <i class="bi bi-trash"></i>
                                         </button>
@@ -67,33 +67,23 @@
                                 </div>
                             </td>
                         </tr>
-                    @endforeach
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
-@if($ciclos->isEmpty())
-    <div class="text-center py-5">
-        <i class="bi bi-calendar-x text-secondary" style="font-size: 3rem;"></i>
-        <h5 class="mt-3 text-secondary">No hay ciclos registrados</h5>
-        <p class="text-muted">Crea tu primer ciclo escolar para comenzar.</p>
-        <a href="{{ route('academia.ciclos.create') }}" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i> Crear primer ciclo
-        </a>
-    </div>
-@endif
 
-{{-- Paginación --}}
-{{ $ciclos->links() }}
+<?php echo e($ciclos->links()); ?>
 
-{{-- Modal crear ciclo --}}
+
+
 <div class="modal fade" id="modalCrearCiclo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form action="{{ route('academia.ciclos.store') }}" method="POST">
-                @csrf
+            <form action="<?php echo e(route('academia.ciclos.store')); ?>" method="POST">
+                <?php echo csrf_field(); ?>
                 <div class="modal-header">
                     <h5 class="modal-title">Nuevo Ciclo Escolar</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -102,11 +92,11 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label">Año Inicial *</label>
-                            <input type="number" name="inicial" class="form-control" required min="2000" max="2100" value="{{ now()->year }}">
+                            <input type="number" name="inicial" class="form-control" required min="2000" max="2100" value="<?php echo e(now()->year); ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Año Final *</label>
-                            <input type="number" name="final" class="form-control" required min="2000" max="2100" value="{{ now()->year }}">
+                            <input type="number" name="final" class="form-control" required min="2000" max="2100" value="<?php echo e(now()->year); ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Periodo *</label>
@@ -155,4 +145,5 @@ function toggleCicloActivo(id, activo) {
     });
 }
 </script>
-@endsection
+<?php $__env->stopSection(); ?>
+<?php echo $__env->make('layouts.admin', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH C:\xampp\htdocs\laravelrelojnew\resources\views/academia/ciclos/index.blade.php ENDPATH**/ ?>

@@ -35,6 +35,16 @@ class Attendance extends Model
         return $this->belongsTo(Employee::class);
     }
 
+    public function attendanceTypeLabel(): string
+    {
+        return match ($this->attendance_type ?? 'biometric') {
+            'manual_admin' => 'Manual administrativo',
+            'manual_teacher' => 'Manual docente',
+            'class' => 'Clase',
+            default => 'Biométrica',
+        };
+    }
+
     public static function uniqueAttendances()
     {
         return self::query()
@@ -51,7 +61,7 @@ class Attendance extends Model
      * (0=Entrada, 1=Salida, 2/3=descanso, 4/5=T.E.) mientras "state" viene
      * constante en 1; en firmwares que reportan al revés, "state" respalda.
      */
-    private function punchStatus(): int
+    public function punchStatus(): int
     {
         if (isset(self::states()[$this->type])) {
             return $this->type;

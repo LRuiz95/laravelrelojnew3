@@ -679,3 +679,8 @@ body.addEventListener('click', (e) => {
 	if (e.target.closest('[data-mobile-scrim]')) body.classList.remove('sidebar-mobile-open');
 });
 Confirm.confirmAll();
+
+/* ─── Lazy-load view-specific modules (progressive enhancement) ─── */
+if (document.getElementById('employees-table')) {
+	import('./employees-index.js');
+}

@@ -84,3 +84,21 @@
 - [ ] Verificar que `CicloActualService::resolve()` valida existencia del ciclo
 - [ ] Verificar que API endpoints validan parámetro `ciclo`
 - [ ] Verificar que no hay IDOR al cambiar `ciclo_principal` manualmente
+
+---
+
+## ADR-006: Fix Ciclo Vacío y Unificación CicloActualService (TASK-2026-0911)
+
+**Fecha**: 2026-09-11
+**Estado**: Propuesta
+**Contexto**: Tres issues reportados: (1) /academia/ciclos vacío, (2) ciclo de trabajo no sincroniza en header, (3) employees diseño mejorable.
+
+**Decisiones**:
+1. **CicloController::index()**: Catch `NoCiclosConfiguradosException` y renderizar `empty-ciclos.blade.php` en lugar de 500. Si hay ciclos pero paginación vacía, mostrar estado vacío en tabla.
+2. **CicloActualService**: Unificar `resolve()` y `current()` en un solo método `getCurrent(Request $request)` que tenga comportamiento consistente: URL param → sesión → default activo, **guardando en sesión si viene por URL**. Header y controladores usarán este único método.
+3. **Employees index**: Pasar `$cargos`, `$departamentos`, `$sedes` desde controlador (queries distinct limitadas). Extraer JS inline a `resources/js/employees-index.js` cargado via Vite. Eliminar duplicación Blade/JS renderizado tabla. Mejorar responsive y agrupación visual.
+
+**Consecuencias**:
+- Rompe compatibilidad menor: `current()` deja de existir, controladores que lo usen (solo header) cambian a `getCurrent()`
+- Employees JS requiere rebuild Vite (`npm run build`)
+- Tests nuevos requeridos para validar flujo unificado de ciclo

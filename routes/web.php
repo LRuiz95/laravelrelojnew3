@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
         // Horarios
         Route::prefix('horarios')->name('horarios.')->group(function () {
             Route::get('clase', [AcademiaHorarioController::class, 'clase'])->name('clase');
+            Route::post('clase/asistencia', [AcademiaHorarioController::class, 'guardarAsistencia'])->name('clase.asistencia.guardar');
             Route::get('profesor', [AcademiaHorarioController::class, 'profesor'])->name('profesor');
             Route::get('aula', [AcademiaHorarioController::class, 'aula'])->name('aula');
             Route::get('base', [AcademiaHorarioController::class, 'base'])->name('base');

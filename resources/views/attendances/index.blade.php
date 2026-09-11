@@ -11,6 +11,14 @@
     </small>
 </div>
 
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#employee-attendance">Checadas de empleados</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#class-attendance">Asistencia por clase</button></li>
+</ul>
+
+<div class="tab-content">
+<div class="tab-pane fade show active" id="employee-attendance">
+
 <div class="card shadow-sm mb-3">
     <div class="card-body">
         <form id="attendanceFilters" class="filter-row" method="GET">
@@ -62,20 +70,25 @@
             <table class="table table-hover align-middle mb-0 table-cards">
                 <thead>
                     <tr>
-                        <th>Fecha y hora</th>
+                        <th>Fecha</th>
                         <th>Empleado</th>
                         <th>ID</th>
-                        <th>Marcado</th>
+                        <th>Entrada</th>
+                        <th>Salida</th>
+                        <th>Descanso</th>
+                        <th>Regreso</th>
+                        <th>Extra entrada</th>
+                        <th>Extra salida</th>
+                        <th>Tipo de empleado</th>
+                        <th>Puesto / área</th>
                         <th>Dispositivo</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($attendances as $attendance)
                         <tr>
-                            <td data-label="Fecha y hora">
-                                <span class="mono text-secondary-token" style="font-size:12px">
-                                    {{ $attendance->recorded_at->locale('es')->isoFormat('D MMM YYYY · HH:mm:ss') }}
-                                </span>
+                            <td data-label="Fecha">
+                                <span class="mono text-secondary-token" style="font-size:12px">{{ \Carbon\Carbon::parse($attendance->date)->locale('es')->isoFormat('D MMM YYYY') }}</span>
                             </td>
                             <td data-label="Empleado">
                                 @if ($attendance->employee)
@@ -86,20 +99,33 @@
                                 @endif
                             </td>
                             <td data-label="ID"><code>{{ $attendance->user_id }}</code></td>
-                            <td data-label="Marcado">
-                                <span class="badge {{ $attendance->stateColorClass() }}">{{ $attendance->stateLabel() }}</span>
+                            @foreach ([0 => 'Entrada', 1 => 'Salida', 2 => 'Descanso', 3 => 'Regreso', 4 => 'Extra entrada', 5 => 'Extra salida'] as $status => $label)
+                                <td data-label="{{ $label }}">
+                                    @if ($attendance->punches->has($status))
+                                        {{ $attendance->punches->get($status)->recorded_at->format('H:i:s') }}
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                            @endforeach
+                            <td data-label="Tipo de empleado">
+                                <span class="badge bg-light text-dark border">{{ $attendance->employee?->type_label ?? 'Sin clasificar' }}</span>
+                            </td>
+                            <td data-label="Puesto / área">
+                                @if ($attendance->employee)
+                                    {{ $attendance->employee->cargo ?: 'Sin puesto' }}
+                                    <small class="d-block text-muted">{{ $attendance->employee->departamento ?: 'Sin área' }}</small>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
                             </td>
                             <td data-label="Dispositivo">
-                                @if ($attendance->device)
-                                    <a href="{{ route('devices.show', $attendance->device) }}" class="ref-chip">
-                                        <i class="bi bi-hdd-network"></i>{{ $attendance->device->name }}
-                                    </a>
-                                @endif
+                                {{ $attendance->device_names->join(', ') ?: '—' }}
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5">
+                            <td colspan="12">
                                 @include('partials.empty-state', [
                                     'icon'     => request('type') || request('from') || request('to') || request('device_id')
                                         ? 'bi-search'
@@ -121,6 +147,42 @@
 </div>
 
 <div class="mt-3">{{ $attendances->links() }}</div>
+</div>
+
+<div class="tab-pane fade" id="class-attendance">
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">Asistencia docente por clase o sección</span>
+            <small class="text-muted">Fecha, grupo, materia, sede y estado</small>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 table-cards">
+                <thead><tr><th>Fecha</th><th>Registro</th><th>Docente</th><th>Grupo / carrera</th><th>Materia</th><th>Día</th><th>Sesión</th><th>Horario</th><th>Ubicación</th><th>Estado</th><th>Observaciones</th></tr></thead>
+                <tbody>
+                    @forelse ($classAttendances as $classAttendance)
+                        <tr>
+                            <td>{{ \Carbon\Carbon::parse($classAttendance->fecha)->locale('es')->isoFormat('D MMM YYYY') }}</td>
+                            <td>{{ $classAttendance->created_at ? \Carbon\Carbon::parse($classAttendance->created_at)->locale('es')->isoFormat('D MMM YYYY HH:mm:ss') : '—' }}</td>
+                            <td><strong>{{ trim(($classAttendance->profesor_paterno ?? '').' '.($classAttendance->profesor_materno ?? '').' '.($classAttendance->nombre_profesor ?? '')) ?: $classAttendance->clave_profesor }}</strong><small class="d-block text-muted">{{ $classAttendance->clave_profesor }}</small></td>
+                            <td><strong>{{ $classAttendance->codigo_grupo }}</strong><small class="d-block text-muted">{{ $classAttendance->carrera ?? 'Carrera no definida' }}</small><small class="d-block text-muted">{{ $classAttendance->nivel ?? 'Nivel no definido' }} · {{ $classAttendance->turno ?? 'Turno no definido' }}</small></td>
+                            <td>{{ $classAttendance->nombre_asignatura ?? $classAttendance->clave_asignatura }}</td>
+                            <td>{{ [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'][$classAttendance->dia] ?? 'Día '.$classAttendance->dia }}</td>
+                            <td>{{ $classAttendance->sesion }}</td>
+                            <td>{{ $classAttendance->hora_inicio ? \Carbon\Carbon::parse($classAttendance->hora_inicio)->format('H:i') : '—' }} - {{ $classAttendance->hora_fin ? \Carbon\Carbon::parse($classAttendance->hora_fin)->format('H:i') : '—' }}</td>
+                            <td>{{ $classAttendance->sede_nombre ?? $classAttendance->id_campus ?? 'Sede no definida' }}<small class="d-block text-muted">Edificio {{ $classAttendance->edificio ?? '—' }} · Aula {{ $classAttendance->aula ?? '—' }}</small><small class="d-block text-muted">Ciclo {{ $classAttendance->inicial }}-{{ $classAttendance->final }}-{{ $classAttendance->periodo }}</small></td>
+                            <td><span class="badge bg-{{ $classAttendance->estado === 'PRESENTE' ? 'success' : ($classAttendance->estado === 'AUSENTE' ? 'danger' : 'warning') }}">{{ $classAttendance->estado }}</span></td>
+                            <td>{{ $classAttendance->observaciones ?: '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="11">@include('partials.empty-state', ['icon' => 'bi-calendar-x', 'title' => 'Sin asistencia por clase', 'desc' => 'Las capturas docentes aparecerán aquí cuando se registren.'])</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="mt-3">{{ $classAttendances->links() }}</div>
+</div>
+</div>
 
 <script>
 document.getElementById('attendanceFilters').addEventListener('change', async (e) => {

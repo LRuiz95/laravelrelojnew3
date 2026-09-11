@@ -12,6 +12,7 @@ use App\Models\Academia\Alumno;
 use App\Models\Academia\Curso;
 use App\Services\CicloActualService;
 use App\Http\Requests\CicloFormRequest;
+use App\Exceptions\NoCiclosConfiguradosException;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -37,8 +38,14 @@ class CicloController extends Controller
             $ciclo->setAttribute('cursos_count', Curso::porCiclo($ciclo->inicial, $ciclo->final, $ciclo->periodo)->count());
         }
 
+        try {
+            $cicloActual = $this->cicloService->resolve($request);
+        } catch (NoCiclosConfiguradosException $e) {
+            return view('academia.empty-ciclos');
+        }
+
         return view('academia.ciclos.index', [
-            'ciclo' => $this->cicloService->resolve($request),
+            'ciclo' => $cicloActual,
             'ciclos' => $ciclos,
         ]);
     }

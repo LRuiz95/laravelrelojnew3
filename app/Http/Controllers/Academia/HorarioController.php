@@ -13,11 +13,13 @@ use App\Models\Academia\Materia;
 use App\Models\Academia\Sede;
 use App\Models\Academia\Alumno;
 use App\Models\Academia\SesionBase;
+use App\Models\Academia\DocenteAsistencia;
 use App\Services\CicloActualService;
 use App\Services\HorarioResolver;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 
 class HorarioController extends Controller
 {
@@ -92,6 +94,33 @@ class HorarioController extends Controller
                 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'
             ],
         ]);
+    }
+
+    public function guardarAsistencia(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'inicial' => ['required', 'integer'],
+            'final' => ['required', 'integer'],
+            'periodo' => ['required', 'integer'],
+            'codigo_grupo' => ['required', 'string', 'max:50'],
+            'clave_profesor' => ['required', 'string', 'max:50'],
+            'clave_asignatura' => ['required', 'string', 'max:20'],
+            'dia' => ['required', 'integer', 'between:1,7'],
+            'sesion' => ['required', 'integer'],
+            'fecha' => ['required', 'date'],
+            'estado' => ['required', 'in:PRESENTE,AUSENTE,RETARDO,JUSTIFICADO'],
+            'observaciones' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        DocenteAsistencia::updateOrCreate(
+            collect($data)->only([
+                'inicial', 'final', 'periodo', 'codigo_grupo', 'clave_profesor',
+                'clave_asignatura', 'dia', 'sesion', 'fecha',
+            ])->all(),
+            ['estado' => $data['estado'], 'observaciones' => $data['observaciones'] ?? null],
+        );
+
+        return back()->with('success', 'Asistencia docente guardada correctamente.');
     }
 
     public function profesor(Request $request): View

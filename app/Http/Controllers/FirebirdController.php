@@ -241,7 +241,9 @@ class FirebirdController extends Controller
 
     public function retry(FirebirdSync $sync, Request $request) { 
         if ($sync->status!=='failed') return back()->with('error','Solo fallidas.'); 
-        $new = FirebirdSync::create(['operation'=>$sync->operation,'ciclo'=>$sync->ciclo,'status'=>'pending','options'=>$sync->options]); 
+        $options = $sync->options ?? [];
+        $options['skip_existing'] = false;
+        $new = FirebirdSync::create(['operation'=>$sync->operation,'ciclo'=>$sync->ciclo,'status'=>'pending','options'=>$options]); 
         \App\Jobs\FirebirdSyncJob::dispatch($new, $new->operation, $new->ciclo, (bool)($new->options['delete_orphans']??false), (array)($new->options['tables']??[]), (bool)($new->options['skip_existing']??true)); 
         return $request->expectsJson()?response()->json(['message'=>'Reintentando','id'=>$new->id]):redirect()->route('firebird.index')->with('success','Reintento encolado #'.$new->id); 
     }

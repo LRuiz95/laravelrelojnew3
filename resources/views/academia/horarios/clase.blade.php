@@ -181,8 +181,9 @@
                                                     "grupo"=>$cl["CODIGO_GRUPO"],"profesor"=>$cl["CLAVEPROFESOR"],
                                                     "asig"=>$cl["CLAVEASIGNATURA"],"dia"=>$cl["DIA"],"sesion"=>$cl["SESION"],
                                                     "fecha"=>$filtros["fecha"],"nombre"=>$cl["NOMBREPROFESOR"],
-                                                    "materia"=>$cl["MATERIA_NOMBRE"],"grupoLabel"=>($cl["GRADO"] ?? '')."-".($cl["TURNO"] ?? ''),
-                                                    "aula"=>$cl["EDIFICIO"]." ".$cl["AULA"],"hora"=>$hora_inicio." - ".$hora_fin,
+                                                    "materia"=>$cl["MATERIA_NOMBRE"],"grupoLabel"=>$cl["CODIGO_GRUPO"],
+                                                    "sede"=>$cl["SEDE_NOMBRE"] ?? $cl["ID_CAMPUS"],"edificio"=>$cl["EDIFICIO"],"aula"=>$cl["AULA"],
+                                                    "hora"=>$hora_inicio." - ".$hora_fin,
                                                     "estado"=>$estado,"obs"=>$cl["ASISTENCIA_OBS"] ?? ""
                                                 ], JSON_HEX_APOS | JSON_HEX_TAG) }})'>
                                             {{ $estado ? 'Editar' : 'Capturar' }}
@@ -199,7 +200,7 @@
 
     {{-- Drawer captura --}}
     <x-drawer id="asistDrawer" title="Capturar Asistencia" size="lg">
-        <form method="POST" action="{{ route('academia.grupos.asistencia.guardar') }}" id="asistForm">
+        <form method="POST" action="{{ route('academia.horarios.clase.asistencia.guardar') }}" id="asistForm">
             @csrf
             <input type="hidden" name="inicial" id="acInicial"><input type="hidden" name="final" id="acFinal"><input type="hidden" name="periodo" id="acPeriodo">
             <input type="hidden" name="codigo_grupo" id="acGrupo"><input type="hidden" name="clave_profesor" id="acProfesor"><input type="hidden" name="clave_asignatura" id="acAsignatura">
@@ -208,6 +209,8 @@
                 <div class="col-md-6"><label class="form-label">Profesor</label><input type="text" id="acNombre" class="form-control" readonly></div>
                 <div class="col-md-6"><label class="form-label">Materia</label><input type="text" id="acMateria" class="form-control" readonly></div>
                 <div class="col-md-6"><label class="form-label">Grupo</label><input type="text" id="acGrupoLabel" class="form-control" readonly></div>
+                <div class="col-md-6"><label class="form-label">Sede</label><input type="text" id="acSede" class="form-control" readonly></div>
+                <div class="col-md-6"><label class="form-label">Edificio</label><input type="text" id="acEdificio" class="form-control" readonly></div>
                 <div class="col-md-6"><label class="form-label">Aula</label><input type="text" id="acAula" class="form-control" readonly></div>
                 <div class="col-md-6"><label class="form-label">Sesión</label><input type="text" id="acHora" class="form-control" readonly></div>
                 <div class="col-md-6"><label class="form-label">Fecha</label><input type="text" id="acFechaLabel" class="form-control" readonly></div>
@@ -240,7 +243,9 @@
         document.getElementById('acNombre').value = clase.nombre;
         document.getElementById('acMateria').value = clase.materia;
         document.getElementById('acGrupoLabel').value = clase.grupoLabel;
-        document.getElementById('acAula').value = clase.aula;
+        document.getElementById('acSede').value = clase.sede || 'Sede no definida';
+        document.getElementById('acEdificio').value = clase.edificio || 'Edificio no definido';
+        document.getElementById('acAula').value = clase.aula || 'Aula no definida';
         document.getElementById('acHora').value = clase.hora;
         document.getElementById('acFechaLabel').value = clase.fecha;
         document.querySelectorAll('input[name="estado"]').forEach(r => r.checked = r.value === (clase.estado || ''));

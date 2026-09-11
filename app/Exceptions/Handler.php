@@ -4,6 +4,11 @@ namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Illuminate\Auth\AuthenticationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
 
@@ -44,7 +49,15 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable $e) {
-            //
+            Log::error('Unhandled application exception', [
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'url' => request()->fullUrl(),
+                'method' => request()->method(),
+                'user_id' => request()->user()?->getAuthIdentifier(),
+            ]);
         });
     }
 
@@ -60,6 +73,57 @@ class Handler extends ExceptionHandler
             return response()->view('academia.empty-ciclos', [
                 'message' => $e->getMessage(),
             ], 404);
+        }
+
+        if ($e instanceof ModelNotFoundException || $e instanceof NotFoundHttpException) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'El recurso solicitado no existe.'], 404);
+            }
+
+            return response()->view('errors.500', [
+                'message' => 'El recurso solicitado no existe o ya no está disponible.',
+            ], 404);
+        }
+
+        if ($e instanceof QueryException) {
+            $errorId = (string) Str::uuid();
+            Log::error('Database operation failed', [
+                'error_id' => $errorId,
+                'sql_state' => $e->errorInfo[0] ?? null,
+                'driver_code' => $e->errorInfo[1] ?? null,
+                'url' => $request->fullUrl(),
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'No se pudo completar la operación de datos.',
+                    'error_id' => $errorId,
+                ], 500);
+            }
+
+            return response()->view('errors.500', [
+                'message' => 'No se pudo completar la operación de datos. Intenta nuevamente o reporta la referencia.',
+                'errorId' => $errorId,
+            ], 500);
+        }
+
+        if ($e instanceof AuthenticationException) {
+            return parent::render($request, $e);
+        }
+
+        if (! config('app.debug')) {
+            $errorId = (string) Str::uuid();
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Ocurrió un error inesperado.',
+                    'error_id' => $errorId,
+                ], 500);
+            }
+
+            return response()->view('errors.500', [
+                'errorId' => $errorId,
+            ], 500);
         }
 
         return parent::render($request, $e);

@@ -6,9 +6,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Attendance;
 use App\Models\Device;
+use App\Models\Employee;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AttendanceController extends Controller
@@ -27,15 +30,95 @@ class AttendanceController extends Controller
             $this->applyFilters($query, $request);
         }
 
-        $attendances = $query
-            ->orderByDesc('recorded_at')
-            ->paginate(25)
-            ->withQueryString();
+        $rawAttendances = $query
+            ->orderBy('recorded_at')
+            ->get();
+
+        $employeesByUserId = Employee::query()
+            ->whereIn('user_id', $rawAttendances->pluck('user_id')->filter()->unique())
+            ->get()
+            ->keyBy(fn (Employee $employee) => (string) $employee->user_id);
+
+        $rawAttendances->each(function (Attendance $attendance) use ($employeesByUserId): void {
+            if (! $attendance->relationLoaded('employee') || ! $attendance->employee) {
+                $employee = $employeesByUserId->get((string) $attendance->user_id);
+                if ($employee) {
+                    $attendance->setRelation('employee', $employee);
+                }
+            }
+        });
+
+        $dailyRows = $rawAttendances
+            ->groupBy(fn (Attendance $attendance) => ($attendance->employee?->id ?? 'user-'.$attendance->user_id).':'.$attendance->recorded_at->toDateString())
+            ->map(function ($records) {
+                $first = $records->first();
+                $punches = $records->groupBy(fn (Attendance $attendance) => $attendance->punchStatus())
+                    ->map(fn ($items) => $items->sortBy('recorded_at')->first());
+
+                return (object) [
+                    'date' => $first->recorded_at->toDateString(),
+                    'employee' => $first->employee,
+                    'user_id' => $first->user_id,
+                    'device_names' => $records->map(fn ($item) => $item->device?->name)->filter()->unique()->values(),
+                    'punches' => $punches,
+                ];
+            })
+            ->sortByDesc(fn ($row) => $row->date.' '.($row->employee?->name ?? $row->user_id));
+
+        $page = LengthAwarePaginator::resolveCurrentPage('employee_page');
+        $perPage = 25;
+        $attendances = new LengthAwarePaginator(
+            $dailyRows->forPage($page, $perPage)->values(),
+            $dailyRows->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'pageName' => 'employee_page', 'query' => $request->query()],
+        );
+
+        $classAttendances = DB::table('docentes_asistencias as da')
+            ->leftJoin('profesores as p', 'p.clave_profesor', '=', 'da.clave_profesor')
+            ->leftJoin('grupos as g', function ($join) {
+                $join->on('g.codigo_grupo', '=', 'da.codigo_grupo')
+                    ->on('g.inicial', '=', 'da.inicial')
+                    ->on('g.final', '=', 'da.final')
+                    ->on('g.periodo', '=', 'da.periodo');
+            })
+            ->leftJoin('materias as m', 'm.clave_asignatura', '=', 'da.clave_asignatura')
+            ->leftJoin('sedes as s', 's.id_campus', '=', 'g.id_campus')
+            ->leftJoin('horarios_det as h', function ($join) {
+                $join->on('h.codigo_grupo', '=', 'da.codigo_grupo')
+                    ->on('h.inicial', '=', 'da.inicial')
+                    ->on('h.final', '=', 'da.final')
+                    ->on('h.periodo', '=', 'da.periodo')
+                    ->on('h.clave_profesor', '=', 'da.clave_profesor')
+                    ->on('h.clave_asignatura', '=', 'da.clave_asignatura')
+                    ->on('h.dia', '=', 'da.dia')
+                    ->on('h.sesion', '=', 'da.sesion');
+            })
+            ->leftJoin('sesiones_base as sb', function ($join) {
+                $join->on('sb.sesion', '=', 'da.sesion')
+                    ->on('sb.nivel', '=', 'g.nivel')
+                    ->on('sb.turno', '=', 'g.turno');
+            })
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('da.fecha', '>=', $request->query('from')))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('da.fecha', '<=', $request->query('to')))
+            ->select([
+                'da.*',
+                'p.nombre_profesor', 'p.paterno as profesor_paterno', 'p.materno as profesor_materno',
+                'g.grado', 'g.turno', 'g.nivel', 'g.id_campus',
+                'g.carrera', 'h.edificio', 'h.aula', 'sb.hora_inicio', 'sb.hora_fin',
+                'm.nombre_asignatura', 's.descripcion as sede_nombre',
+            ])
+            ->orderByDesc('da.fecha')
+            ->orderBy('da.sesion')
+            ->paginate(25, ['*'], 'class_page')
+            ->appends($request->query());
 
         return view('attendances.index', [
             'attendances' => $attendances,
             'devices' => Device::orderBy('name')->get(),
             'states' => Attendance::states(),
+            'classAttendances' => $classAttendances,
         ]);
     }
 

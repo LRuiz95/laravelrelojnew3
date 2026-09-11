@@ -173,12 +173,12 @@ class CycleDirectSync implements SyncStrategyInterface
         'GRUPOS'          => ['codigo_grupo', 'inicial', 'final', 'periodo'],
         'HORARIOS_DET'    => ['inicial', 'final', 'periodo', 'codigo_grupo', 'clave_profesor', 'clave_asignatura', 'dia', 'sesion'],
         'CURSOS'          => ['inicial', 'final', 'periodo', 'clave_curso'],
-        'CURSOS_DET'      => ['curso_id', 'dia', 'hora_inicial'],
+        'CURSOS_DET'      => ['curso_id', 'dia', 'hora_inicial', 'hora_final', 'id_campus', 'edificio', 'aula'],
         'CICLOS'          => ['inicial', 'final', 'periodo'],
         'ALUMNOS_NIVELES' => ['numero_alumno', 'inicial', 'final', 'periodo'],
         'ALUMNOS'         => ['numero_alumno'],
         'ALUMNOS_GRUPOS'  => ['numero_alumno', 'codigo_grupo', 'inicial', 'final', 'periodo'],
-        'ALUMNOS_CURSOS'  => ['inicial', 'final', 'periodo', 'codigo_curso', 'numero_alumno', 'id_tipoeval', 'id_etapa', 'clave_asignatura', 'version', 'tipoexamen'],
+        'ALUMNOS_CURSOS'  => ['inicial', 'final', 'periodo', 'codigo_curso', 'numero_alumno'],
     ];
 
     public function execute(
@@ -636,6 +636,9 @@ class CycleDirectSync implements SyncStrategyInterface
             $m = [];
             foreach ($fbMap as $mk => $fk) {
                 $val = $row[$fk] ?? null;
+                if (in_array($mk, ['ciclo_cerrado', 'receso', 'web'], true) && is_string($val)) {
+                    $val = in_array(strtoupper(trim($val)), ['S', 'SI', 'Y', 'YES', '1', 'TRUE'], true);
+                }
                 // Aplicar default si el valor es NULL y hay un default definido
                 if ($val === null && isset($defaults[$mk])) {
                     $val = $defaults[$mk];
@@ -679,6 +682,18 @@ class CycleDirectSync implements SyncStrategyInterface
             $log[] = ['tipo' => 'info', 'msg' => "{$tabla}: " . (count($mappedFb) - count($indexed)) . " duplicados FB eliminados"];
         }
         $mappedFb = array_values($indexed);
+
+        if ($tabla === 'CURSOS_DET') {
+            $unique = [];
+            foreach ($mappedFb as $row) {
+                $key = implode('|', array_map(
+                    fn ($column) => (string) ($row[$column] ?? ''),
+                    ['curso_id', 'inicial', 'final', 'periodo', 'codigo_curso', 'dia', 'hora_inicial', 'hora_final', 'id_campus', 'edificio', 'aula'],
+                ));
+                $unique[$key] = $row;
+            }
+            $mappedFb = array_values($unique);
+        }
 
         $colNames = array_keys($mappedFb[0]);
         $nonPk = array_values(array_diff($colNames, $pkCols));

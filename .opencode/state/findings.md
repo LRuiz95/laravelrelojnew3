@@ -1,67 +1,53 @@
-# Integration Findings — TASK-ACAD-001 Phase 4-5
+# Hallazgos — TASK-2026-0911 Grupo C (employees)
 
-## Resumen General
-**Estado global: PASS** — Las rutas propagan `ciclo_principal` correctamente y la sincronización Firebird respeta la jerarquía FK y separa catálogos globales vs datos por ciclo.
+## Agent: @frontend
 
----
+## Archivos modificados
 
-## Fase 4: Rutas — Verificación de propagación `ciclo_principal`
+| Archivo | Cambios | Líneas antes → después |
+|---------|---------|----------------------|
+| `app/Http/Controllers/EmployeeController.php` | index(): agregó queries distinct para `$cargos`, `$departamentos`, `$sedes` y los pasa a la vista. search(): agregó soporte para filtros `cargo`, `departamento`, `id_campus`, `sin_huella`, `sin_device`; agregó eager loading de `sede` y `fingerprints`; retorna campos completos para renderizado JS (cargo, departamento, sede_label, contrato, nivel, is_baja, status_actual, fingerprints_count, has_card, last_sync, URLs de acción). | 466 → 518 |
+| `resources/views/employees/index.blade.php` | Refactor completo: eliminó 273 líneas de JS inline; implementó patrón SSR + progressive enhancement; agregó chips de filtro activos con badges; agregó IDs para JS (`employees-table`, `employees-pagination`, `employees-counter`); agregó `data-is-admin` al tbody; empty states inline con iconos y CTAs. | 652 → 429 |
+| `resources/js/employees-index.js` | **Nuevo**: IIFE con debounce search, AJAX filtros, AJAX paginación, loading/error states, renderizado de filas desde JSON, paginación con elipsis, counter update. | — |
+| `resources/js/app.js` | Agregó lazy loading del módulo employees via `import()` dinámico cuando detecta `#employees-table`. | 681 → 685 |
 
-| Verificación | Estado | Detalle |
-|--------------|--------|---------|
-| 1. Todas las rutas `academia.*` aceptan query param `ciclo_principal` | **PASS** | Las rutas están bajo `Route::prefix('academia')` y no definen parámetros obligatorios. `CicloActualService::resolve()` lee `ciclo_principal` del request (query string) en prioridad 1. |
-| 2. `CicloActualService::resolve()` prioridad: session → query param → cookie → default | **PASS** (con nota) | Orden real en código: **1. Query param `ciclo_principal`** → **2. Sesión** → **3. Default (último ciclo activo)**. No usa cookie explícitamente, pero la sesión persiste via cookie de Laravel. Cumple la intención. |
-| 3. No hay rutas academia que redirijan a `ciclos.index` sin preservar query params | **PASS** | No existe redirección a `ciclos.index` en el grupo `academia.*`. El endpoint `/academia/set-ciclo` (POST) solo guarda en sesión y retorna JSON; no redirige. |
+## Cambios de UX
 
-**Nota:** La prioridad documentada en el plan decía "session → query param → cookie → default", pero el código implementa "query param → session → default". Esto es **mejor** (URL gana sobre sesión para compartir enlaces), no un bug.
+1. **Filtros ahora funcionales**: Los selects de cargo/departamento/sede se poblan con datos reales (distinct) del controller. Antes siempre estaban vacíos.
 
----
+2. **Chips de filtro activos**: Cuando hay filtros activos, se muestran badges con iconos y botón × para quitar cada filtro individualmente. Colores: cat-blue (búsqueda), cat-purple (puesto), cat-green (sede), cat-amber (sin huellas/enrolar).
 
-## Fase 5: Sync Firebird — Validación de jerarquía
+3. **Empty state mejorado**: Cuando no hay resultados, se muestra un estado vacío inline con icono, título, descripción y CTA para limpiar filtros o crear empleado.
 
-### 5.1 `CycleDirectSync.php` — Orden de tablas respeta FK
+4. **Progressive enhancement**: La tabla se renderiza desde Blade (SSR). El JS solo maneja interacciones AJAX. Si JS no carga, el form funciona con SSR normal.
 
-| Verificación | Estado | Detalle |
-|--------------|--------|---------|
-| Orden `TABLAS_CICLO_DIRECTO`: CICLOS → GRUPOS → CURSOS → CURSOS_DET → ALUMNOS_GRUPOS → HORARIOS_DET | **PASS** | El array `TABLAS_CICLO_DIRECTO` (líneas 23-30) define el orden exacto. Comentario en código confirma "Orden respetando foreign keys". Análisis de dependencias:<br/>1. **CICLOS** — raíz, sin FK a tablas académicas<br/>2. **GRUPOS** — FK a CICLOS + catálogos (NIVELES, TURNOS, SEDES) ya sincronizados vía `CatalogSmartSync`<br/>3. **CURSOS** — FK a CICLOS<br/>4. **CURSOS_DET** — FK a CURSOS + MATERIAS (catálogo global)<br/>5. **ALUMNOS_GRUPOS** — FK a GRUPOS + ALUMNOS (ALUMNOS se sincroniza en Fase 2 tras `ALUMNOS_NIVELES`)<br/>6. **HORARIOS_DET** — FK a CICLOS, GRUPOS, PROFESORES, MATERIAS, SEDES (todos disponibles al final) |
-| FASE 2 (Alumnos) respeta dependencia: `ALUMNOS_NIVELES` → extraer IDs → `ALUMNOS` | **PASS** | Código líneas 139-171: primero sincroniza `ALUMNOS_NIVELES` con filtro de ciclo, extrae `numero_alumno` distintos, luego sincroniza `ALUMNOS` (datos completos) **sin filtro de ciclo** pero solo para esos IDs. Correcto: `ALUMNOS` es catálogo global, `ALUMNOS_NIVELES` vincula alumno-ciclo. |
+5. **Responsive**: Se mantiene el patrón `.table-cards` existente que convierte la tabla en tarjetas en móviles.
 
-### 5.2 `CatalogSmartSync.php` — Catálogos globales NO filtran por ciclo
+## Arquitectura del JS extraído
 
-| Verificación | Estado | Detalle |
-|--------------|--------|---------|
-| Tablas de catálogo global en `TABLE_MAP` no tienen filtro de ciclo en la sincronización | **PASS** | El método `execute()` (línea 257) recibe `$ciclo` pero **no lo usa** en `syncCatalogTable()`. La lectura Firebird usa `$fbReader->countRows($fbTable)` y `fetchRows($fbTable, ...)` **sin WHERE de ciclo**. Las tablas puramente globales (sedes, niveles, turnos, planes, materias, metodos_eval, contratos, sesiones_base, employees) se sincronizan completas. |
-| Tablas con columnas de ciclo en `TABLE_MAP` (CICLOS, GRUPOS, HORARIOS_DET, CURSOS, ALUMNOS_GRUPOS, ALUMNOS_KARDEX) se sincronizan **todas** (todas los ciclos) | **PASS (por diseño)** | Esto es intencional: `CatalogSmartSync` = "sync_catalogos" = sincronización completa de todo el catálogo (todos los ciclos). Para sincronización incremental por ciclo se usa `CycleDirectSync` ("sync_ciclo"). La UI en `FirebirdController` separa visualmente ambos modos. |
+- **Patrón**: IIFE auto-contenida, sin dependencias de globals (excepto `window.dashConfirmAll`)
+- **Carga**: Lazy via `import()` dinámico desde `app.js` cuando detecta `#employees-table`
+- **Estados manejados**: loading (spinner), error (retry button), empty (filtered/unfiltered), success (table rows + pagination)
+- **Eventos**: debounce search (300ms), filter change → fetch, form submit → AJAX, pagination click → fetch, delegated click handlers
 
-### 5.3 `FirebirdController.php` — UI separa "Catálogos base" vs "Por ciclo" vs "Alumnos"
+## Decisiones tomadas
 
-| Verificación | Estado | Detalle |
-|--------------|--------|---------|
-| `getCatalogGroups()` define 3 grupos principales: `base`, `ciclo`, `alumnos` | **PASS** | Estructura (líneas 19-65):<br/>- **base** (5 subgrupos): Sedes y Configuración, Planes y Materias, Configuración Académica, Catálogos Principales, Nómina — 10 tablas globales<br/>- **ciclo** (4 subgrupos): Grupos y Horarios, Cursos y Materias, Inscripciones por Ciclo, Sesiones por Grupo — 6 tablas dependientes de ciclo<br/>- **alumnos** (1 subgrupo): Datos de Alumnos — 1 tabla (`ALUMNOS_NIVELES`) |
-| Cada grupo tiene etiqueta clara y `recommended: true` para tablas principales | **PASS** | UI guiará al usuario: "Catálogos base" = sincronizar una vez / rara vez; "Por ciclo" = sincronizar por cada ciclo escolar; "Alumnos" = datos de inscripción por ciclo. |
+1. **Form action = `route('employees.index')`** (no `search`): Para que el SSR funcione cuando JS no está disponible. El JS intercepta el submit y hace AJAX al endpoint `/employees/search`.
 
----
+2. **Lazy loading via `import()`**: En lugar de entry point adicional en Vite, se importa dinámicamente desde `app.js`. Solo se carga cuando la vista tiene `#employees-table`.
 
-## Checklist Obligatorio (AGENTS.md §integration)
+3. **Empty state inline**: En lugar de usar `partials.empty-state` (que no encontré en el proyecto), se implementó inline con el mismo estilo visual. Esto evita dependencias y mantiene consistencia.
 
-- [x] Revisé qué pasa si el mismo payload llega dos veces (idempotencia) — **N/A**: Esta tarea es solo lectura/validación; no hay payloads de sync para evaluar.
-- [x] Revisé comportamiento si timeout ocurre a mitad de operación — **N/A**: Validación estática de código.
-- [x] Confirmé si el reintento es idempotente — **N/A**: Validación estática.
-- [x] Confirmé que errores de sistemas externos se propagan — **N/A**: Validación estática.
-- [x] Coordiné con `mysql`/`firebird` (detalle de motor) y `data-integrity` — **Pendiente**: Este reporte es input para esos agentes.
-- [x] No modifiqué código — solo diagnóstico.
-- [x] Escribí resultado en `.opencode/state/findings.md` con formato de evidencia.
+4. **Controller search() enriquecido**: Se agregaron los mismos filtros que `index()` al endpoint JSON para que el AJAX funcione igual que el SSR.
 
----
+## Checklist
 
-## Conclusión
+- [x] Usé el sistema de tokens y componentes Bootstrap 5 ya existentes (cat-blue, cat-green, badge-with-dot, ref-chip, etc.)
+- [x] Verifiqué estado vacío, de carga y de error — no solo el happy path
+- [x] El cambio se limita a `Allowed files` del Task Boundary activo
+- [x] No introduje un framework CSS/JS nuevo ni un sistema visual paralelo
+- [x] No modifiqué lógica de servidor más allá de lo necesario (solo EmployeeController para pasar variables y enriquecer search)
+- [x] No aprobé mi propio código
+- [x] No creé archivos temporales/scratch
 
-**Todas las validaciones de Fase 4 y Fase 5: PASS.**
-
-La arquitectura de rutas y sincronización **ya respeta** la jerarquía diseñada en el plan:
-- Rutas academia aceptan `ciclo_principal` vía `CicloActualService` (query param > sesión > default).
-- `CycleDirectSync` ejecuta en orden FK correcto: CICLOS → GRUPOS → CURSOS → CURSOS_DET → ALUMNOS_GRUPOS → HORARIOS_DET, con fase separada para ALUMNOS.
-- `CatalogSmartSync` sincroniza catálogos globales sin filtro de ciclo (comportamiento correcto para "sync_catalogos").
-- UI de FirebirdController separa visualmente los tres dominios: base / ciclo / alumnos.
-
-**No se requieren cambios de código.** La implementación actual cumple con los requisitos de la jerarquía.
+## Generated (temporal): ninguno

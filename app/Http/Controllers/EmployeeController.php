@@ -53,18 +53,31 @@ class EmployeeController extends Controller
         // Stats para tabs
         $sobrantesStats = $sobranteService->getStats();
 
+        // Opciones de filtros (distinct, limitadas para performance)
+        $cargos = Employee::whereNotNull('cargo')->where('cargo', '!=', '')->distinct()->pluck('cargo')->sort()->values();
+        $departamentos = Employee::whereNotNull('departamento')->where('departamento', '!=', '')->distinct()->pluck('departamento')->sort()->values();
+        $sedes = Employee::whereNotNull('id_campus')->where('id_campus', '!=', '')
+            ->join('campus', 'employees.id_campus', '=', 'campus.id_campus')
+            ->select('campus.id_campus', 'campus.descripcion')
+            ->distinct()
+            ->get();
+
         return view('employees.index', [
             'employees' => $employees,
             'devices' => Device::orderBy('name')->get(),
             'status' => $status,
             'sobrantesStats' => $sobrantesStats,
+            'cargos' => $cargos,
+            'departamentos' => $departamentos,
+            'sedes' => $sedes,
         ]);
     }
 
     public function search(Request $request): JsonResponse
     {
         $query = Employee::query()
-            ->with('devices')
+            ->with(['devices', 'sede'])
+            ->withCount('fingerprints')
             ->orderByRaw('LOWER(name)')
             ->orderBy('id');
 
@@ -78,6 +91,31 @@ class EmployeeController extends Controller
                     ->orWhere('user_id', $search)
                     ->orWhere('user_id', 'like', "%{$search}%");
             });
+        }
+
+        // Filtro por cargo
+        if ($cargo = trim((string) $request->query('cargo', ''))) {
+            $query->where('cargo', $cargo);
+        }
+
+        // Filtro por departamento
+        if ($departamento = trim((string) $request->query('departamento', ''))) {
+            $query->where('departamento', $departamento);
+        }
+
+        // Filtro por sede
+        if ($idCampus = $request->query('id_campus')) {
+            $query->where('id_campus', $idCampus);
+        }
+
+        // Filtro por sin huellas
+        if ($request->boolean('sin_huella')) {
+            $query->whereDoesntHave('fingerprints');
+        }
+
+        // Filtro por sin enrolar (sin devices)
+        if ($request->boolean('sin_device')) {
+            $query->whereDoesntHave('devices');
         }
 
         // Filtro por estado
@@ -95,6 +133,20 @@ class EmployeeController extends Controller
                 'id' => $employee->id,
                 'user_id' => $employee->user_id,
                 'name' => $employee->name,
+                'cargo' => $employee->cargo,
+                'departamento' => $employee->departamento,
+                'contrato' => $employee->contrato,
+                'nivel' => $employee->nivel,
+                'id_campus' => $employee->id_campus,
+                'sede_label' => $employee->sede->descripcion ?? $employee->id_campus ?? null,
+                'status_actual' => $employee->status_actual,
+                'is_baja' => $employee->status_actual === 'B',
+                'fingerprints_count' => $employee->fingerprints_count ?? $employee->fingerprints->count() ?? 0,
+                'has_card' => $employee->devices->contains(fn($d) => filled($d->pivot->card_number)),
+                'last_sync' => $employee->syncs->first() ?? null,
+                'edit_url' => route('employees.edit', $employee),
+                'sync_url' => route('employees.sync-devices', $employee),
+                'destroy_url' => route('employees.destroy', $employee),
                 'devices' => $employee->devices->map(function ($device) {
                     return [
                         'id' => $device->id,

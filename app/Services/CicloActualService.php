@@ -13,34 +13,41 @@ class CicloActualService
 {
     public const SESSION_KEY = 'ciclo_actual';
 
-    /**
-     * Resuelve el ciclo actual siguiendo prioridad:
-     * 1. Parámetro URL ?ciclo_principal=
-     * 2. Sesión guardada
-     * 3. Último ciclo activo
-     */
-    public function resolve(Request $request): Ciclo
-    {
-        // 1. Parámetro URL
-        if ($request->filled('ciclo_principal')) {
-            $ciclo = $this->findByLabel($request->get('ciclo_principal'));
-            if ($ciclo) {
-                $this->storeInSession($ciclo);
-                return $ciclo;
-            }
+/**
+ * Método unificado que obtiene el ciclo actual.
+ * Prioridad: URL param ?ciclo_principal= → sesión → default activo.
+ * Si viene por URL, guarda en sesión para consistencia.
+ */
+public function getCurrent(Request $request): Ciclo
+{
+    // 1. Parámetro URL
+    if ($request->filled('ciclo_principal')) {
+        $ciclo = $this->findByLabel($request->get('ciclo_principal'));
+        if ($ciclo) {
+            $this->storeInSession($ciclo);
+            return $ciclo;
         }
-
-        // 2. Sesión
-        if (Session::has(self::SESSION_KEY)) {
-            $ciclo = $this->findByLabel(Session::get(self::SESSION_KEY));
-            if ($ciclo) {
-                return $ciclo;
-            }
-        }
-
-        // 3. Default: último ciclo con datos
-        return $this->getDefaultCiclo();
     }
+
+    // 2. Sesión
+    if (Session::has(self::SESSION_KEY)) {
+        $ciclo = $this->findByLabel(Session::get(self::SESSION_KEY));
+        if ($ciclo) {
+            return $ciclo;
+        }
+    }
+
+    // 3. Default: último ciclo activo
+    return $this->getDefaultCiclo();
+}
+
+/**
+ * Wrapper para backward compatibility. Usa getCurrent() internamente.
+ */
+public function resolve(Request $request): Ciclo
+{
+    return $this->getCurrent($request);
+}
 
     public function findByLabel(string $label): ?Ciclo
     {
@@ -72,33 +79,16 @@ class CicloActualService
     }
 
     /**
-     * Obtiene el ciclo actual para el header/global.
-     * Prioridad: parámetro request > sesión > default activo.
-     * Igual que resolve(), para mantener consistencia.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \App\Models\Academia\Ciclo|null
+     * Wrapper para backward compatibility (header/global).
+     * Retorna null en lugar de lanzar excepción.
      */
     public function current(?Request $request = null): ?Ciclo
     {
-        // 1. Parámetro request (máxima prioridad)
-        if ($request && $request->filled('ciclo_principal')) {
-            $ciclo = $this->findByLabel($request->get('ciclo_principal'));
-            if ($ciclo) {
-                return $ciclo;
-            }
+        try {
+            return $this->getCurrent($request ?? request());
+        } catch (NoCiclosConfiguradosException $e) {
+            return null;
         }
-
-        // 2. Sesión
-        if (Session::has(self::SESSION_KEY)) {
-            $ciclo = $this->findByLabel(Session::get(self::SESSION_KEY));
-            if ($ciclo) {
-                return $ciclo;
-            }
-        }
-
-        // 3. Default: ciclo activo más reciente
-        return $this->getDefaultCiclo();
     }
 
     public function storeInSession(Ciclo $ciclo): void

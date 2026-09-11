@@ -183,6 +183,7 @@ Route::middleware('admin')->group(function () {
     Route::get('/fingerprints', [FingerprintController::class, 'index'])->name('fingerprints.index');
 
     Route::get('/attendances', [AttendanceController::class, 'index'])->name('attendances.index');
+    Route::get('/puntualidad', [App\Http\Controllers\PuntualidadController::class, 'index'])->name('puntualidad.index');
     Route::get('/attendances/export', [AttendanceController::class, 'export'])->name('attendances.export');
     Route::get('/attendances/print', [AttendanceController::class, 'print'])->name('attendances.print');
     Route::get('/sync-queue', [OperationsController::class, 'queue'])->middleware('admin')->name('operations.queue');

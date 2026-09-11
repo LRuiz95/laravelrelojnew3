@@ -71,6 +71,11 @@
                     <i class="bi bi-calendar-check"></i><span class="nav-label">Asistencias</span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a href="<?php echo e(route('puntualidad.index')); ?>" data-tooltip="Puntualidad" class="nav-link <?php echo e(request()->routeIs('puntualidad.*') ? 'active' : ''); ?>" title="Puntualidad">
+                    <i class="bi bi-alarm"></i><span class="nav-label">Puntualidad</span>
+                </a>
+            </li>
             <?php if(auth()->user()->isAdmin()): ?>
             <li class="nav-item">
                 <a href="<?php echo e(route('operations.queue')); ?>" data-tooltip="Cola de sincronización" class="nav-link <?php echo e(request()->routeIs('operations.queue') ? 'active' : ''); ?>" title="Cola de sincronización">

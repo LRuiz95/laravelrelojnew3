@@ -36,7 +36,7 @@
             @endif
         </p>
     </div>
-    @if (auth()->user()->isAdmin())
+    @if (auth()->user()->canAccessModule('dispositivos', 'sync'))
         <div class="d-flex flex-wrap gap-2">
             <button type="button" class="btn btn-primary sync-btn" data-operation="all"
                     data-url="{{ route('devices.sync-all', $device) }}">

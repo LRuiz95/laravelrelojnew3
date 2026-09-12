@@ -5,7 +5,9 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div></div>
-    <a href="{{ route('incidencias.create') }}" class="btn btn-primary">Nueva incidencia</a>
+    @if (auth()->user()->canAccessModule('incidencias', 'create'))
+        <a href="{{ route('incidencias.create') }}" class="btn btn-primary">Nueva incidencia</a>
+    @endif
 </div>
 
 <div class="card shadow-sm mb-3">
@@ -102,7 +104,7 @@
                                 <span class="badge {{ $estadoBadge }}">{{ $incidencia->estado }}</span>
                             </td>
                             <td>
-                                @if ($incidencia->estado !== 'aprobada' || auth()->user()->isAdmin())
+                                @if (auth()->user()->canAccessModule('incidencias', 'approve'))
                                     <div class="btn-group btn-group-sm" role="group">
                                         <form method="POST" action="{{ route('incidencias.estado', $incidencia) }}">
                                             @csrf

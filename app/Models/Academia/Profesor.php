@@ -36,6 +36,7 @@ class Profesor extends Model
         'curp',
         'email',
         'telefono',
+        'auth_user_id',
     ];
 
     protected $casts = [
@@ -69,6 +70,23 @@ class Profesor extends Model
     public function director(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Employee::class, 'director_id');
+    }
+
+    public function authUser(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'auth_user_id');
+    }
+
+    public function permissionGroups(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            \App\Models\PermissionGroup::class,
+            'profesor_permission_groups',
+            'profesor_clave_profesor',
+            'permission_group_id',
+            'clave_profesor',
+            'id'
+        );
     }
 
     public function horarios(): HasMany

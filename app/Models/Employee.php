@@ -40,6 +40,7 @@ class Employee extends Model
         'tarjeta_id',
         'area_id',
         'puesto_id',
+        'auth_user_id',
     ];
 
     protected $casts = [
@@ -89,6 +90,16 @@ class Employee extends Model
     public function puesto(): BelongsTo
     {
         return $this->belongsTo(Puesto::class, 'puesto_id');
+    }
+
+    public function authUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'auth_user_id');
+    }
+
+    public function permissionGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(PermissionGroup::class, 'employee_permission_groups');
     }
 
     public static function roles(): array

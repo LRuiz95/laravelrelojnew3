@@ -134,6 +134,16 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="{{ route('permission-groups.index') }}" data-tooltip="Grupos de permisos" class="nav-link {{ request()->routeIs('permission-groups.*') ? 'active' : '' }}" title="Grupos de permisos">
+                    <i class="bi bi-shield-check"></i><span class="nav-label">Grupos de permisos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('permissions.index') }}" data-tooltip="Permisos" class="nav-link {{ request()->routeIs('permissions.*') ? 'active' : '' }}" title="Permisos">
+                    <i class="bi bi-key"></i><span class="nav-label">Permisos</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{{ route('academia.horarios.clase') }}" data-tooltip="Horarios y Asistencia" class="nav-link {{ request()->routeIs('academia.horarios*') ? 'active' : '' }}" title="Horarios y Asistencia">
                     <i class="bi bi-calendar-week"></i><span class="nav-label">Horarios</span>
                 </a>

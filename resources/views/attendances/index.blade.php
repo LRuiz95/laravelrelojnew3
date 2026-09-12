@@ -51,14 +51,16 @@
             <div class="col-md-2">
                 <button class="btn btn-primary w-100"><i class="bi bi-funnel me-1"></i>Filtrar</button>
             </div>
-            <div class="col-md-auto ms-auto d-flex gap-2 align-items-end">
-                <a href="{{ route('attendances.export', request()->query()) }}" class="btn btn-outline-success">
-                    <i class="bi bi-file-earmark-spreadsheet"></i> Excel/CSV
-                </a>
-                <a href="{{ route('attendances.print', request()->query()) }}" target="_blank" class="btn btn-outline-secondary">
-                    <i class="bi bi-printer"></i> PDF/Imprimir
-                </a>
-            </div>
+            @if (auth()->user()->canAccessModule('asistencias', 'export'))
+                <div class="col-md-auto ms-auto d-flex gap-2 align-items-end">
+                    <a href="{{ route('attendances.export', request()->query()) }}" class="btn btn-outline-success">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Excel/CSV
+                    </a>
+                    <a href="{{ route('attendances.print', request()->query()) }}" target="_blank" class="btn btn-outline-secondary">
+                        <i class="bi bi-printer"></i> PDF/Imprimir
+                    </a>
+                </div>
+            @endif
         </x-filter-bar>
     </div>
 </div>
